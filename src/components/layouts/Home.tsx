@@ -71,7 +71,7 @@ export default function Home() {
       <header className="container ml-24 mr-auto flex grow-0 flex-col gap-5 pl-4">
         <h1>Three.js Journey</h1>
       </header>
-      <div className="flex gap-4">
+      <div className="flex min-h-0 grow items-stretch gap-4">
         <Sidebar />
         <div className="container grow">
           <Outlet />
