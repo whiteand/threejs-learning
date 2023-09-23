@@ -1,4 +1,11 @@
-import { HTMLAttributes, useLayoutEffect, useRef, useState } from 'react'
+import {
+  HTMLAttributes,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { BehaviorSubject } from 'rxjs'
 import { Vector2 } from 'three'
 import clsx from '~/packages/clsx'
 import { ParentSizeContext } from './ParentSizeContext'
@@ -8,7 +15,7 @@ export default function Sized({
   children,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  const [size, setSize] = useState<Vector2>(new Vector2(0, 0))
+  const size$ = useMemo(() => new BehaviorSubject(new Vector2(0, 0)), [])
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [sized, setSized] = useState(false)
 
@@ -21,7 +28,7 @@ export default function Sized({
       const { width, height } = rect
       if (lastSize.width === width && lastSize.height === height) return
       lastSize = rect
-      setSize(new Vector2(width, height))
+      size$.next(new Vector2(width, height))
       if (!sized) {
         setSized(true)
         sized = true
@@ -34,7 +41,8 @@ export default function Sized({
       clearInterval(interval)
       window.removeEventListener('resize', handleResize)
     }
-  }, [setSize, setSized])
+  }, [size$, setSized])
+
   return (
     <div
       ref={wrapperRef}
@@ -42,7 +50,7 @@ export default function Sized({
       {...props}
     >
       <div className="absolute left-0 top-0 h-full w-full">
-        <ParentSizeContext.Provider value={size}>
+        <ParentSizeContext.Provider value={size$}>
           {sized ? children : null}
         </ParentSizeContext.Provider>
       </div>

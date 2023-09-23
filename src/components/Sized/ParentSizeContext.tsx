@@ -1,4 +1,7 @@
 import { createContext } from 'react'
+import { BehaviorSubject } from 'rxjs'
 import { Vector2 } from 'three'
 
-export const ParentSizeContext = createContext<Vector2>(new Vector2(0, 0))
+export const ParentSizeContext = createContext<BehaviorSubject<Vector2>>(
+  new Vector2(0, 0),
+)
