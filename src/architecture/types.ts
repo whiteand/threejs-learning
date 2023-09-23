@@ -7,6 +7,7 @@ export interface IApplication {
 }
 
 export interface IModule extends IApplication {
+  setTitle(title: string): this
   getRoutes(): RouteObject[]
   getMenuItems(menu: string): IMenuItem[]
   setPath(path: string): this

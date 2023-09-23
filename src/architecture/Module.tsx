@@ -1,4 +1,5 @@
-import { RouteObject } from 'react-router-dom'
+import { Helmet } from 'react-helmet'
+import { Outlet, RouteObject } from 'react-router-dom'
 import { IApplication, IMenuItem, IModule } from '~/architecture/types'
 import { assert } from '~/packages/assert'
 
@@ -7,6 +8,7 @@ export class Module implements IModule {
   private path: string | null
   private element: JSX.Element | null
   private children: IModule[]
+  private title: string | null
   private menus: Record<string, IMenuItem>
   constructor({ baseUrl }: { baseUrl: string }) {
     this.baseUrl = baseUrl
@@ -14,6 +16,7 @@ export class Module implements IModule {
     this.element = null
     this.children = []
     this.menus = {}
+    this.title = null
   }
   resolve(relativePath: string): string {
     const base = this.baseUrl.endsWith('/')
@@ -64,13 +67,29 @@ export class Module implements IModule {
 
   getRoutes(): RouteObject[] {
     const children = this.children.flatMap((child) => child.getRoutes())
+    let routeElement = this.element
+    if (this.title != null) {
+      routeElement = (
+        <>
+          <Helmet>
+            <title>{this.title}</title>
+          </Helmet>
+          {routeElement ?? <Outlet />}
+        </>
+      )
+    }
     return [
       {
         path: this.path || undefined,
-        element: this.element || undefined,
+        element: routeElement || undefined,
         children,
       },
     ]
+  }
+  setTitle(title: string): this {
+    assert(this.title == null)
+    this.title = title
+    return this
   }
   getMenuItems(menu: string): IMenuItem[] {
     const childItems = this.children.flatMap((child) =>

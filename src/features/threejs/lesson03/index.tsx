@@ -5,6 +5,7 @@ export const Lesson03Feature: FeatureConstructor = (app) => {
   app
     .child()
     .setPath('/lesson-03')
+    .setTitle('THREE.js | Lesson 03')
     .setElement(<Lesson03 />)
     .showInMenu('main', 'Lesson 03', 0)
 }
