@@ -1,6 +1,6 @@
-import { Helmet } from 'react-helmet'
 import { Outlet, RouteObject } from 'react-router-dom'
 import { IApplication, IMenuItem, IModule } from '~/architecture/types'
+import Title from '~/components/Title'
 import { assert } from '~/packages/assert'
 
 export class Module implements IModule {
@@ -71,9 +71,7 @@ export class Module implements IModule {
     if (this.title != null) {
       routeElement = (
         <>
-          <Helmet>
-            <title>{this.title}</title>
-          </Helmet>
+          <Title>{this.title}</Title>
           {routeElement ?? <Outlet />}
         </>
       )

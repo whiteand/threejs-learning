@@ -1,3 +1,10 @@
+import Sized from '~/components/Sized/Sized'
+import Lesson03Canvas from './Lesson03Canvas'
+
 export default function Lesson03() {
-  return <div className="bg-gray-750 h-full w-full">Lesson 03 started</div>
+  return (
+    <Sized className="h-full w-full">
+      <Lesson03Canvas />
+    </Sized>
+  )
 }
