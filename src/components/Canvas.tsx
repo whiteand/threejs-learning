@@ -12,7 +12,7 @@ const Canvas = forwardRef<HTMLCanvasElement, ICanvasProps>(
     const actualDensity = density ?? 1
     const pixelWidth = width == null ? undefined : Number(width) * actualDensity
     const pixelHeight =
-      width == null ? undefined : Number(width) * actualDensity
+      height == null ? undefined : Number(height) * actualDensity
 
     return (
       <canvas

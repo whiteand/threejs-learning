@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import Canvas from '~/components/Canvas'
 import { useParentSize } from '~/components/Sized/useParentSize'
+import createLesson03App from '~/features/threejs/lesson03/createLesson03App'
+import { runApp } from '~/packages/interactive-app'
 
 export default function Lesson03Canvas() {
   const size = useParentSize()
@@ -8,13 +10,8 @@ export default function Lesson03Canvas() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      return
-    }
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = '#336699'
-    ctx.fillRect(10, 10, 10, 10)
+
+    return runApp(createLesson03App(canvas))
   }, [canvasRef])
 
   return (
