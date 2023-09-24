@@ -3,5 +3,5 @@ import { BehaviorSubject } from 'rxjs'
 import { Vector2 } from 'three'
 
 export const ParentSizeContext = createContext<BehaviorSubject<Vector2>>(
-  new Vector2(0, 0),
+  new BehaviorSubject(new Vector2(0, 0)),
 )

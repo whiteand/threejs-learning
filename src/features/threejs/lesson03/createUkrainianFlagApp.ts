@@ -1,6 +1,7 @@
 import { BehaviorSubject } from 'rxjs'
 import {
   BoxGeometry,
+  Color,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -10,10 +11,14 @@ import {
 } from 'three'
 import { createApp } from '~/packages/interactive-app'
 
-export default function createLesson03App(
+export default function createUkrainianFlagApp(
   canvas: HTMLCanvasElement,
   size$: BehaviorSubject<Vector2>,
 ) {
+  const BLUE_HSL = new Color(0x0056b9)
+  const YELLOW_HSL = new Color(0xffd800)
+  const RED_HSL = new Color(0xcc0000)
+  const BLACK_HSL = new Color(0x000000)
   return createApp(
     () => {
       // Building Scene
@@ -23,13 +28,13 @@ export default function createLesson03App(
 
       // Creating a cube
       const yellowGeometry = new BoxGeometry(3, 1, 1)
-      const blueGeometry = new BoxGeometry(3, 1, 1)
+      const blueGeometry = yellowGeometry.clone()
       blueGeometry.translate(0, 1, 0)
       const blueMaterial = new MeshBasicMaterial({
-        color: 0x0056b9,
+        color: BLUE_HSL.clone(),
       })
       const yellowMaterial = new MeshBasicMaterial({
-        color: 0xffd800,
+        color: YELLOW_HSL.clone(),
       })
       const bluePart = new Mesh(blueGeometry, blueMaterial)
       const yellowPart = new Mesh(yellowGeometry, yellowMaterial)
@@ -44,6 +49,7 @@ export default function createLesson03App(
       // Renderer
       const renderer = new WebGLRenderer({
         canvas,
+        alpha: true,
         // antialias: false,
         // alpha: true,
         // precision: 'lowp',
@@ -60,6 +66,8 @@ export default function createLesson03App(
       })
 
       return {
+        bluePart,
+        yellowPart,
         renderer,
         scene,
         camera,
@@ -67,11 +75,18 @@ export default function createLesson03App(
       }
     },
     (ctx, time) => {
-      const t = time / 1024
+      const t = (time / 4096) * Math.PI
+      const animation = (Math.cos(t) + 1) * 0.5 // Math.min(t / 1000, 1)
       const { renderer } = ctx
-      const R = 4
-      ctx.camera.position.set(Math.sin(t) * R, 1, Math.cos(t) * R)
-      ctx.camera.lookAt(0, 0, 0)
+      const R = 5
+      ctx.camera.position.set(Math.sin(t) * R, 0.5, Math.cos(t) * R)
+      ctx.camera.lookAt(0, 1, 0)
+
+      ctx.bluePart.material.color.set(BLUE_HSL.clone().lerp(RED_HSL, animation))
+      ctx.yellowPart.material.color.set(
+        YELLOW_HSL.clone().lerp(BLACK_HSL, animation),
+      )
+
       renderer.render(ctx.scene, ctx.camera)
     },
     ({ subscription }) => {

@@ -1,11 +1,12 @@
 import { FeatureConstructor } from '~/architecture/types'
-import Lesson03 from '~/features/threejs/lesson03/Lesson03'
+import CanvasApp from '~/components/CanvasApp'
+import createUkrainianFlagApp from './createUkrainianFlagApp'
 
 export const Lesson03Feature: FeatureConstructor = (app) => {
   app
     .child()
-    .setPath('/lesson-03')
-    .setTitle('THREE.js | Lesson 03')
-    .setElement(<Lesson03 />)
-    .showInMenu('main', 'Lesson 03', 0)
+    .setPath('/ukrainian-flag')
+    .setTitle('THREE.js | Ukrainian Flag')
+    .setElement(<CanvasApp createApp={createUkrainianFlagApp} />)
+    .showInMenu('main', 'Ukrainian Flag', 0)
 }
