@@ -42,17 +42,20 @@ export default function createFlyControlApp(
         alpha: false,
       })
 
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
       renderer.setSize(size$.getValue().x, size$.getValue().y)
 
       const controls = new OrbitControls(camera, renderer.domElement)
+      controls.zoomSpeed = 0.5
       controls.enableDamping = true
 
       renderer.render(scene, camera)
 
       const subscription = size$.subscribe((sizes) => {
-        renderer.setSize(sizes.x, sizes.y)
         camera.aspect = sizes.x / sizes.y
         camera.updateProjectionMatrix()
+        renderer.setSize(sizes.x, sizes.y)
+        renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
       })
 
       const mousePosition$ = new BehaviorSubject<THREE.Vector2 | null>(null)
