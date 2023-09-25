@@ -20,7 +20,9 @@ export default function createTextureApp(
       }
       const textureLoader = new THREE.TextureLoader(loadingManager)
 
-      const colorTexture = textureLoader.load('/textures/door/color.jpg')
+      const colorTexture = textureLoader.load('/textures/minecraft.png')
+      colorTexture.magFilter = THREE.NearestFilter
+      colorTexture.generateMipmaps = false
       const alphaTexture = textureLoader.load('/textures/door/alpha.jpg')
       const heightTexture = textureLoader.load('/textures/door/height.jpg')
       const normalTexture = textureLoader.load('/textures/door/normal.jpg')
@@ -70,9 +72,29 @@ export default function createTextureApp(
 
       scene.add(camera)
       const light = new THREE.DirectionalLight(0xffffff, 1)
-      gui.add(light.position, 'x', -2, 2, 0.01)
-      gui.add(light.position, 'y', -2, 2, 0.01)
-      gui.add(light.position, 'z', -2, 2, 0.01)
+      light.position.set(0.48, 1, 0.87)
+
+      const lightPolars = { phi: Math.PI / 4, theta: Math.PI / 4 }
+      gui
+        .add(lightPolars, 'phi', 0, Math.PI, 0.01)
+        .name('Light Phi')
+        .onChange(() => {
+          light.position.setFromSphericalCoords(
+            1,
+            lightPolars.phi,
+            lightPolars.theta,
+          )
+        })
+      gui
+        .add(lightPolars, 'theta', 0, Math.PI * 2, 0.01)
+        .name('Light Theta')
+        .onChange(() => {
+          light.position.setFromSphericalCoords(
+            1,
+            lightPolars.phi,
+            lightPolars.theta,
+          )
+        })
 
       scene.add(light)
 
