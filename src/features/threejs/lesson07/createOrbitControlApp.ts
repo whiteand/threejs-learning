@@ -1,6 +1,6 @@
 import { BehaviorSubject, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
-import { FlyControls } from 'three/examples/jsm/controls/FlyControls.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createApp } from '~/packages/interactive-app'
 
 export default function createFlyControlApp(
@@ -44,8 +44,7 @@ export default function createFlyControlApp(
 
       renderer.setSize(size$.getValue().x, size$.getValue().y)
 
-      const controls = new FlyControls(camera, renderer.domElement)
-      controls.rollSpeed = 0.5
+      const controls = new OrbitControls(camera, renderer.domElement)
 
       renderer.render(scene, camera)
 
@@ -80,8 +79,7 @@ export default function createFlyControlApp(
         clock,
       }
     },
-    ({ scene, controls, clock, camera, renderer }) => {
-      controls.update(clock.getDelta())
+    ({ scene, camera, renderer }) => {
       renderer.render(scene, camera)
     },
     ({ subscription, clock, controls }) => {
