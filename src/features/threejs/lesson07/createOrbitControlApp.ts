@@ -45,6 +45,7 @@ export default function createFlyControlApp(
       renderer.setSize(size$.getValue().x, size$.getValue().y)
 
       const controls = new OrbitControls(camera, renderer.domElement)
+      controls.enableDamping = true
 
       renderer.render(scene, camera)
 
@@ -79,8 +80,9 @@ export default function createFlyControlApp(
         clock,
       }
     },
-    ({ scene, camera, renderer }) => {
+    ({ scene, camera, renderer, controls }) => {
       renderer.render(scene, camera)
+      controls.update()
     },
     ({ subscription, clock, controls }) => {
       subscription.unsubscribe()
