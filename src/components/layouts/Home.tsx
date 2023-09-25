@@ -67,7 +67,7 @@ function Sidebar() {
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col gap-4 pt-4">
+    <div className="flex min-h-screen flex-col gap-4 pr-4 pt-4">
       <header className="ml-40 mr-auto flex grow-0 flex-col gap-5 pl-4">
         <h1>Three.js Journey</h1>
       </header>

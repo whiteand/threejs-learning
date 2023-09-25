@@ -7,8 +7,6 @@ import { useParentSize$ } from '~/components/Sized/useParentSize$'
 import { SizeText } from '~/components/SizeText'
 import { InteractiveApp, runApp } from '~/packages/interactive-app'
 
-const randomValue = Math.random()
-
 function RunApp<T>({
   createApp,
 }: {
