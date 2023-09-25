@@ -20,12 +20,15 @@ export default function createTextureApp(
       }
       const textureLoader = new THREE.TextureLoader(loadingManager)
 
-      const colorTexture = textureLoader.load('/textures/minecraft.png')
+      const colorTexture = textureLoader.load('/textures/door/color.jpg')
       colorTexture.magFilter = THREE.NearestFilter
       colorTexture.generateMipmaps = false
       const alphaTexture = textureLoader.load('/textures/door/alpha.jpg')
       const heightTexture = textureLoader.load('/textures/door/height.jpg')
       const normalTexture = textureLoader.load('/textures/door/normal.jpg')
+      normalTexture.generateMipmaps = false
+      normalTexture.minFilter = THREE.NearestFilter
+      normalTexture.magFilter = THREE.NearestFilter
       const metalnessTexture = textureLoader.load(
         '/textures/door/metalness.jpg',
       )
@@ -44,7 +47,7 @@ export default function createTextureApp(
       const axesHelper = new THREE.AxesHelper()
       scene.add(axesHelper)
 
-      const geometry = new THREE.BoxGeometry(1, 1, 1, 256, 256, 256)
+      const geometry = new THREE.PlaneGeometry(1, 1, 512, 512)
 
       const material = new THREE.MeshStandardMaterial({
         map: colorTexture,
@@ -53,6 +56,7 @@ export default function createTextureApp(
         displacementMap: heightTexture,
         displacementScale: 0.03,
         normalMap: normalTexture,
+        transparent: true,
         metalnessMap: metalnessTexture,
         aoMap: ambientOcclusionTexture,
       })
@@ -67,7 +71,7 @@ export default function createTextureApp(
         size$.getValue().x / size$.getValue().y,
       )
 
-      camera.position.set(3, 3, 3)
+      camera.position.set(-1, -1, 1).normalize()
       camera.lookAt(new THREE.Vector3())
 
       scene.add(camera)
