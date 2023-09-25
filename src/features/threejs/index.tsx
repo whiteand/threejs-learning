@@ -1,7 +1,8 @@
 import { FeatureConstructor } from '~/architecture/types'
 import Home from '~/components/layouts/Home'
 import { Lesson03Feature } from '~/features/threejs/lesson03'
-import { Lesson04Feature } from '~/features/threejs/lesson04'
+import { Lesson05Feature } from '~/features/threejs/lesson05'
+import { Lesson06Feature } from '~/features/threejs/lesson06'
 
 export const ThreeJsFeature: FeatureConstructor = (app) => {
   app
@@ -9,5 +10,6 @@ export const ThreeJsFeature: FeatureConstructor = (app) => {
     .setPath('/')
     .setElement(<Home />)
     .use(Lesson03Feature)
-    .use(Lesson04Feature)
+    .use(Lesson05Feature)
+    .use(Lesson06Feature)
 }

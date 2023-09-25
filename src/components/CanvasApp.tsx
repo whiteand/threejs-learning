@@ -7,6 +7,8 @@ import { useParentSize$ } from '~/components/Sized/useParentSize$'
 import { SizeText } from '~/components/SizeText'
 import { InteractiveApp, runApp } from '~/packages/interactive-app'
 
+const randomValue = Math.random()
+
 function RunApp<T>({
   createApp,
 }: {
@@ -20,7 +22,6 @@ function RunApp<T>({
   useLayoutEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
     return runApp(createApp(canvas, size$))
   }, [canvasRef, size$, createApp])
 
