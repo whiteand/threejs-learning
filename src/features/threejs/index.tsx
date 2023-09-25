@@ -6,6 +6,7 @@ import { Lesson06Feature } from '~/features/threejs/lesson06'
 import { Lesson07Feature } from '~/features/threejs/lesson07'
 import { Lesson08Feature } from '~/features/threejs/lesson08'
 import { Lesson10Feature } from '~/features/threejs/lesson10'
+import { Lesson11Feature } from '~/features/threejs/lesson11'
 
 export const ThreeJsFeature: FeatureConstructor = (app) => {
   app
@@ -18,4 +19,5 @@ export const ThreeJsFeature: FeatureConstructor = (app) => {
     .use(Lesson07Feature)
     .use(Lesson08Feature)
     .use(Lesson10Feature)
+    .use(Lesson11Feature)
 }
