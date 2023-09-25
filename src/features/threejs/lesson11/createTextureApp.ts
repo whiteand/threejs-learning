@@ -26,9 +26,6 @@ export default function createTextureApp(
       const alphaTexture = textureLoader.load('/textures/door/alpha.jpg')
       const heightTexture = textureLoader.load('/textures/door/height.jpg')
       const normalTexture = textureLoader.load('/textures/door/normal.jpg')
-      normalTexture.generateMipmaps = false
-      normalTexture.minFilter = THREE.NearestFilter
-      normalTexture.magFilter = THREE.NearestFilter
       const metalnessTexture = textureLoader.load(
         '/textures/door/metalness.jpg',
       )
@@ -59,8 +56,18 @@ export default function createTextureApp(
         transparent: true,
         metalnessMap: metalnessTexture,
         aoMap: ambientOcclusionTexture,
+        aoMapIntensity: 1,
       })
+      gui.add(material, 'aoMapIntensity', -1, 5, 0.001)
       const coloredCube = new THREE.Mesh(geometry, material)
+
+      coloredCube.geometry.setAttribute(
+        'uv2',
+        new THREE.Float32BufferAttribute(
+          coloredCube.geometry.attributes.uv.array,
+          2,
+        ),
+      )
 
       // CUBE
       scene.add(coloredCube)
@@ -76,9 +83,13 @@ export default function createTextureApp(
 
       scene.add(camera)
       const light = new THREE.DirectionalLight(0xffffff, 1)
-      light.position.set(0.48, 1, 0.87)
+      const lightPolars = { phi: 1.64, theta: 6.28 }
+      light.position.setFromSphericalCoords(
+        1,
+        lightPolars.phi,
+        lightPolars.theta,
+      )
 
-      const lightPolars = { phi: Math.PI / 4, theta: Math.PI / 4 }
       gui
         .add(lightPolars, 'phi', 0, Math.PI, 0.01)
         .name('Light Phi')
@@ -101,6 +112,8 @@ export default function createTextureApp(
         })
 
       scene.add(light)
+
+      scene.add(new THREE.AmbientLight(0xffffff, 1))
 
       // Renderer
       const renderer = new THREE.WebGLRenderer({
