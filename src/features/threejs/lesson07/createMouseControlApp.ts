@@ -75,20 +75,22 @@ export default function createMouseControlApp(
     },
     ({ scene, camera, renderer, mousePosition$ }) => {
       const mousePos = mousePosition$.getValue()
-      const ratio2 = mousePos
+      const targetPolars = mousePos
         ? mousePos
             .clone()
             .divide(size$.getValue())
             .multiplyScalar(Math.pow(2, 10))
             .round()
             .multiplyScalar(Math.pow(2, -10))
-        : new THREE.Vector2(0.5, 0.5)
+        : new THREE.Vector2(0.1, 0.36)
+
+      const currentPolars = directionToPolars(camera.position)
       const R = 3
-      camera.position.x =
-        R * Math.sin(ratio2.x * Math.PI * 2) * Math.sin(ratio2.y * Math.PI)
-      camera.position.z =
-        R * Math.cos(ratio2.x * Math.PI * 2) * Math.sin(ratio2.y * Math.PI)
-      camera.position.y = R * Math.cos(ratio2.y * Math.PI)
+      camera.position.copy(
+        polarsToDirection(
+          currentPolars.lerp(targetPolars, 0.05),
+        ).multiplyScalar(R),
+      )
 
       camera.lookAt(scene.position)
 
@@ -99,4 +101,27 @@ export default function createMouseControlApp(
       clock.stop()
     },
   )
+}
+
+function polarsToDirection({ x: ro, y: phi }: THREE.Vector2) {
+  const pi = Math.PI
+  return new THREE.Vector3(
+    Math.sin(ro * pi * 2) * Math.sin(phi * pi),
+    Math.cos(phi * pi),
+    Math.cos(ro * pi * 2) * Math.sin(phi * pi),
+  )
+}
+
+function directionToPolars(pos: THREE.Vector3): THREE.Vector2 {
+  const y = pos.y / pos.length()
+  const x = pos.x / pos.length()
+  const z = pos.z / pos.length()
+  const phi = Math.acos(y) / Math.PI
+  let ro = Math.atan2(x, z) / (Math.PI * 2) + 0.5
+  if (ro >= 0.5 && ro <= 1) {
+    ro -= 0.5
+  } else {
+    ro += 0.5
+  }
+  return new THREE.Vector2(ro, phi)
 }
