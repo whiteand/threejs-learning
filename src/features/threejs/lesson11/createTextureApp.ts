@@ -72,6 +72,24 @@ export default function createTextureApp(
       // CUBE
       scene.add(coloredCube)
 
+      const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 32, 32),
+        new THREE.MeshMatcapMaterial({
+          matcap: textureLoader.load('/textures/matcap-cartoonish.jpeg'),
+        }),
+      )
+      sphere.position.z = -1
+
+      const sphere2 = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 32, 32),
+        new THREE.MeshMatcapMaterial({
+          matcap: textureLoader.load('/textures/matcap-bubble.jpeg'),
+        }),
+      )
+      sphere2.position.z = -1
+      sphere2.position.x = 1
+      scene.add(sphere, sphere2)
+
       // Camera
       const camera = new THREE.PerspectiveCamera(
         55,
