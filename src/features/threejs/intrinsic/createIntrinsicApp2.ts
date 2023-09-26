@@ -66,7 +66,8 @@ function addCubesAlongCurve(
       )
       const easedAppearingTime = Math.pow(appearinAnimationTime, 2)
       materials[ind].opacity = targetOpacity * easedAppearingTime
-      materials[ind].color.setHSL(ratio, 1, targetOpacity)
+      const targetLightness = Math.pow(targetOpacity, 3)
+      materials[ind].color.setHSL(ratio, 1, targetLightness)
     }
   }
 
@@ -127,8 +128,8 @@ export default function createIntrinsicApp(
 
       const clock = new THREE.Clock()
 
-      const axesHelper = new THREE.AxesHelper()
-      scene.add(axesHelper)
+      // const axesHelper = new THREE.AxesHelper()
+      // scene.add(axesHelper)
 
       const curve = new THREE.CatmullRomCurve3(
         [
@@ -170,7 +171,7 @@ export default function createIntrinsicApp(
         size$.getValue().x / size$.getValue().y,
       )
 
-      camera.position.set(0, 0, 2)
+      camera.position.set(2, 2, 5)
       camera.lookAt(new THREE.Vector3())
 
       scene.add(camera)
@@ -224,6 +225,8 @@ export default function createIntrinsicApp(
             settings.play()
           }),
       )
+
+      settings.play()
 
       return {
         renderer,
