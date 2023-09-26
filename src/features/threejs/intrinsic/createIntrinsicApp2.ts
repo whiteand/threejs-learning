@@ -6,30 +6,31 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createApp } from '~/packages/interactive-app'
 
+interface IAnimationSettings {
+  points: THREE.Vector3[]
+  startColor: THREE.Color
+  endColor: THREE.Color
+}
+
 type Cube = THREE.Mesh
 function addCubesAlongCurve(
   curve: THREE.CatmullRomCurve3,
   cubesNumber: number,
   scene: THREE.Scene,
   size$: BehaviorSubject<THREE.Vector2>,
+  initialSettings: IAnimationSettings,
 ): {
   dispose(): void
   meshes: Cube[]
   animate(time: number): void
+  updateSettings(newSettings: IAnimationSettings): void
 } {
+  let settings = initialSettings
   const cubes: Cube[] = []
 
   const geometry = new MeshLineGeometry()
 
-  geometry.setPoints([
-    new THREE.Vector3(-0.5, -0.5, 0),
-    new THREE.Vector3(0.5, -0.5, 0),
-    new THREE.Vector3(0.5, 0.5, 0),
-    new THREE.Vector3(-0.5, 0.5, 0),
-    new THREE.Vector3(-0.5, -0.5, 0),
-  ])
-
-  geometry.scale(0.5, 0.5, 0.5)
+  geometry.setPoints(settings.points)
 
   const materials = Array.from({ length: cubesNumber }, (_, ind) => {
     const res = new MeshLineMaterial({
@@ -59,15 +60,22 @@ function addCubesAlongCurve(
       }
       if (ratio < time) return
       const targetOpacity = Math.pow(1 - Math.abs(time - ratio), 2)
-      const appearinAnimationTime = THREE.MathUtils.clamp(
+      const appearingAnimationTime = THREE.MathUtils.clamp(
         time / (0.1 + ratio * 0.4),
         0,
         1,
       )
-      const easedAppearingTime = Math.pow(appearinAnimationTime, 2)
+      const easedAppearingTime = Math.pow(appearingAnimationTime, 2)
       materials[ind].opacity = targetOpacity * easedAppearingTime
       const targetLightness = Math.pow(targetOpacity, 3)
-      materials[ind].color.setHSL(ratio, 1, targetLightness)
+      const newColor = new THREE.Color().lerpColors(
+        settings.startColor,
+        settings.endColor,
+        ratio,
+      )
+      const hsl = { h: 0, s: 0, l: 0 }
+      newColor.getHSL(hsl)
+      materials[ind].color.setHSL(hsl.h, 1, targetLightness)
     }
   }
 
@@ -91,6 +99,9 @@ function addCubesAlongCurve(
         updateMesh(cubes[i], i, time)
       }
     },
+    updateSettings(newSettings: IAnimationSettings) {
+      settings = newSettings
+    },
   }
 }
 
@@ -100,13 +111,14 @@ export default function createIntrinsicApp(
 ) {
   return createApp(
     () => {
+      let animation: gsap.core.Tween | null = null
       const gui = new GUI()
       const settings = {
         bgColor: 0xd9d9d9,
         cubesNumber: 40,
         animationTime: 0,
         play() {
-          gsap.fromTo(
+          animation = gsap.fromTo(
             this,
             {
               animationTime: 0,
@@ -118,8 +130,12 @@ export default function createIntrinsicApp(
               },
               duration: 10,
               ease: 'power2.inOut',
+              repeat: -1,
             },
           )
+        },
+        stop() {
+          animation?.kill()
         },
       }
 
@@ -141,7 +157,40 @@ export default function createIntrinsicApp(
         true,
       )
 
-      let cubes = addCubesAlongCurve(curve, settings.cubesNumber, scene, size$)
+      const animationSettings: IAnimationSettings = {
+        points: [
+          new THREE.Vector3(-0.5, -0.5, 0),
+          new THREE.Vector3(0.5, -0.5, 0),
+          new THREE.Vector3(0.5, 0.5, 0),
+          new THREE.Vector3(-0.5, 0.5, 0),
+          new THREE.Vector3(-0.5, -0.5, 0),
+        ],
+        startColor: new THREE.Color('red'),
+        endColor: new THREE.Color('blue'),
+      }
+
+      gui
+        .addColor(animationSettings, 'startColor')
+        .name('Start Color')
+        .onChange(() => {
+          cubes.updateSettings(animationSettings)
+          cubes.animate(settings.animationTime)
+        })
+      gui
+        .addColor(animationSettings, 'endColor')
+        .name('End Color')
+        .onChange(() => {
+          cubes.updateSettings(animationSettings)
+          cubes.animate(settings.animationTime)
+        })
+
+      let cubes = addCubesAlongCurve(
+        curve,
+        settings.cubesNumber,
+        scene,
+        size$,
+        animationSettings,
+      )
 
       gui
         .add(settings, 'cubesNumber')
@@ -151,7 +200,13 @@ export default function createIntrinsicApp(
         .name('Cubes Number')
         .onChange(() => {
           cubes.dispose()
-          cubes = addCubesAlongCurve(curve, settings.cubesNumber, scene, size$)
+          cubes = addCubesAlongCurve(
+            curve,
+            settings.cubesNumber,
+            scene,
+            size$,
+            animationSettings,
+          )
         })
 
       gui
@@ -164,6 +219,7 @@ export default function createIntrinsicApp(
         })
 
       gui.add(settings, 'play')
+      gui.add(settings, 'stop')
 
       // Camera
       const camera = new THREE.PerspectiveCamera(
