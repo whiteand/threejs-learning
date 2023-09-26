@@ -1,57 +1,79 @@
 import gsap from 'gsap'
 import GUI from 'lil-gui'
-import { BehaviorSubject, fromEvent, map } from 'rxjs'
+import { MeshLineGeometry, MeshLineMaterial } from 'meshline'
+import { BehaviorSubject, filter, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createApp } from '~/packages/interactive-app'
 
+type Cube = THREE.Mesh
 function addCubesAlongCurve(
   curve: THREE.CatmullRomCurve3,
   cubesNumber: number,
   scene: THREE.Scene,
-): { dispose(): void; meshes: THREE.Object3D[]; animate(time: number): void } {
-  const cubes: THREE.LineSegments[] = []
+  size$: BehaviorSubject<THREE.Vector2>,
+): {
+  dispose(): void
+  meshes: Cube[]
+  animate(time: number): void
+} {
+  const cubes: Cube[] = []
 
-  const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2)
-  const edgeMaterial = new THREE.LineBasicMaterial({
-    color: 0x000000,
-    linewidth: 3,
+  const geometry = new MeshLineGeometry()
+
+  geometry.setPoints([
+    new THREE.Vector3(-0.5, -0.5, 0),
+    new THREE.Vector3(0.5, -0.5, 0),
+    new THREE.Vector3(0.5, 0.5, 0),
+    new THREE.Vector3(-0.5, 0.5, 0),
+    new THREE.Vector3(-0.5, -0.5, 0),
+  ])
+
+  geometry.scale(0.5, 0.5, 0.5)
+
+  const materials = Array.from({ length: cubesNumber }, () => {
+    const res = new MeshLineMaterial({
+      color: 0xffffff,
+      lineWidth: 0.05,
+      resolution: size$.getValue(),
+      opacity: 0.5,
+    })
+    res.transparent = true
+    return res
   })
-  const edgeGeometry = new THREE.EdgesGeometry(geometry)
-  // const material = new THREE.MeshStandardMaterial({
-  //   color: 0x000000,
-  //   transparent: true,
-  //   opacity: 0.75,
-  // })
+  // const edgeGeometry = new THREE.EdgesGeometry(geometry)
 
-  function updateMesh(
-    mesh: { position: THREE.Vector3; lookAt(vec: THREE.Vector3): void },
-    ind: number,
-    time: number,
-  ) {
+  function updateMesh(mesh: Cube, ind: number, time: number) {
     const ratio = ind / cubesNumber
-    let actualRatio = ratio + time
-    while (actualRatio > 1) {
-      actualRatio -= 1
+
+    if (ind === 0) {
+      materials[ind].opacity = 1
+      mesh.position.copy(curve.getPointAt(time))
+      mesh.lookAt(curve.getTangentAt(time))
+    } else {
+      if (ratio < time) {
+        scene.remove(mesh)
+      } else if (!scene.children.includes(mesh)) {
+        scene.add(mesh)
+      }
+      if (ratio < time) return
+      materials[ind].opacity = Math.pow(1 - Math.abs(time - ratio), 2)
     }
-    mesh.position.copy(curve.getPoint(actualRatio))
-    mesh.lookAt(curve.getTangent(actualRatio))
   }
 
   for (let i = 0; i < cubesNumber; i++) {
-    const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial)
+    const cube = new THREE.Mesh(geometry, materials[i])
 
-    updateMesh(edges, i, 0)
-
-    cubes.push(edges)
-    scene.add(edges)
+    const ratio = i / cubesNumber
+    cube.position.copy(curve.getPointAt(ratio))
+    cube.lookAt(curve.getTangentAt(ratio))
+    cubes.push(cube)
+    scene.add(cube)
   }
+
   return {
     dispose: () => {
       scene.remove(...cubes)
-      for (const cube of cubes) {
-        cube.material
-      }
     },
     meshes: cubes,
     animate(time: number) {
@@ -96,20 +118,20 @@ export default function createIntrinsicApp(
 
       const clock = new THREE.Clock()
 
-      // const axesHelper = new THREE.AxesHelper()
-      // scene.add(axesHelper)
+      const axesHelper = new THREE.AxesHelper()
+      scene.add(axesHelper)
 
       const curve = new THREE.CatmullRomCurve3(
         [
-          new THREE.Vector3(-0.5, 0, 0),
-          new THREE.Vector3(-0.5, 0.5, -0.5),
-          new THREE.Vector3(0.5, -0.5, 0.5),
-          new THREE.Vector3(0.5, 0, 1),
+          new THREE.Vector3(-1, 0, 0),
+          new THREE.Vector3(-0.75, 0.5, 0.5),
+          new THREE.Vector3(0.75, -0.5, -0.5),
+          new THREE.Vector3(1, 0, 0),
         ],
         true,
       )
 
-      let cubes = addCubesAlongCurve(curve, settings.cubesNumber, scene)
+      let cubes = addCubesAlongCurve(curve, settings.cubesNumber, scene, size$)
 
       gui
         .add(settings, 'cubesNumber')
@@ -119,14 +141,14 @@ export default function createIntrinsicApp(
         .name('Cubes Number')
         .onChange(() => {
           cubes.dispose()
-          cubes = addCubesAlongCurve(curve, settings.cubesNumber, scene)
+          cubes = addCubesAlongCurve(curve, settings.cubesNumber, scene, size$)
         })
 
       gui
         .add(settings, 'animationTime')
         .min(0)
         .max(1)
-        .step(0.001)
+        .step(1e-5)
         .onChange(() => {
           cubes.animate(settings.animationTime)
         })
@@ -156,7 +178,7 @@ export default function createIntrinsicApp(
       })
 
       renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
-      renderer.setClearColor(settings.bgColor, 1)
+      // renderer.setClearColor(settings.bgColor, 1)
       renderer.setSize(size$.getValue().x, size$.getValue().y)
 
       const controls = new OrbitControls(camera, renderer.domElement)
@@ -184,6 +206,14 @@ export default function createIntrinsicApp(
         fromEvent(canvas, 'mouseout')
           .pipe(map(() => null))
           .subscribe(mousePosition$),
+      )
+
+      subscription.add(
+        fromEvent<KeyboardEvent>(window, 'keydown', { passive: true })
+          .pipe(filter((event) => event.key === ' '))
+          .subscribe(() => {
+            settings.play()
+          }),
       )
 
       return {
