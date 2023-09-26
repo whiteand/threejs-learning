@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { DotScreenPass } from 'three/examples/jsm/postprocessing/DotScreenPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
 
@@ -273,6 +274,26 @@ export default function createIntrinsicApp(
       effectComposer.addPass(renderPass)
       const dotScreenPass = new DotScreenPass()
       effectComposer.addPass(dotScreenPass)
+      gui.add(dotScreenPass, 'enabled').name('Dot Screen Pass')
+      const glitchPass = new GlitchPass()
+      glitchPass.enabled = false
+      glitchPass.goWild = false
+
+      gui
+        .add(glitchPass, 'enabled')
+        .name('Glitch pass')
+        .onChange((enabled: boolean) => {
+          if (enabled) {
+            wildController.show()
+          } else {
+            wildController.hide()
+          }
+        })
+      const wildController = gui
+        .add(glitchPass, 'goWild')
+        .name('Glitch wild')
+        .hide()
+      effectComposer.addPass(glitchPass)
 
       const subscription = size$.subscribe((sizes) => {
         camera.aspect = sizes.x / sizes.y
