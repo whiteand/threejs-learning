@@ -4,6 +4,7 @@ import { MeshLineGeometry, MeshLineMaterial } from 'meshline'
 import { BehaviorSubject, filter, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { DotScreenPass } from 'three/examples/jsm/postprocessing/DotScreenPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
@@ -270,6 +271,8 @@ export default function createIntrinsicApp(
 
       const renderPass = new RenderPass(scene, camera)
       effectComposer.addPass(renderPass)
+      const dotScreenPass = new DotScreenPass()
+      effectComposer.addPass(dotScreenPass)
 
       const subscription = size$.subscribe((sizes) => {
         camera.aspect = sizes.x / sizes.y
