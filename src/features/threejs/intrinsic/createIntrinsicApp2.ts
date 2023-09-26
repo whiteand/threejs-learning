@@ -8,6 +8,8 @@ import { DotScreenPass } from 'three/examples/jsm/postprocessing/DotScreenPass.j
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js'
 import { createApp } from '~/packages/interactive-app'
 
 interface IAnimationSettings {
@@ -149,6 +151,8 @@ export default function createIntrinsicApp(
           animation?.kill()
         },
       }
+      gui.add(settings, 'play')
+      gui.add(settings, 'stop')
 
       // Building Scene
       const scene = new THREE.Scene()
@@ -235,9 +239,6 @@ export default function createIntrinsicApp(
           cubes.animate(settings.animationTime)
         })
 
-      gui.add(settings, 'play')
-      gui.add(settings, 'stop')
-
       // Camera
       const camera = new THREE.PerspectiveCamera(
         55,
@@ -273,8 +274,9 @@ export default function createIntrinsicApp(
       const renderPass = new RenderPass(scene, camera)
       effectComposer.addPass(renderPass)
       const dotScreenPass = new DotScreenPass()
-      effectComposer.addPass(dotScreenPass)
+      dotScreenPass.enabled = false
       gui.add(dotScreenPass, 'enabled').name('Dot Screen Pass')
+      effectComposer.addPass(dotScreenPass)
       const glitchPass = new GlitchPass()
       glitchPass.enabled = false
       glitchPass.goWild = false
@@ -294,6 +296,11 @@ export default function createIntrinsicApp(
         .name('Glitch wild')
         .hide()
       effectComposer.addPass(glitchPass)
+
+      const gammaPass = new ShaderPass(GammaCorrectionShader)
+      gammaPass.enabled = false
+      gui.add(gammaPass, 'enabled').name('Gamma Correction')
+      effectComposer.addPass(gammaPass)
 
       const subscription = size$.subscribe((sizes) => {
         camera.aspect = sizes.x / sizes.y
