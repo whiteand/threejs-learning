@@ -13,7 +13,7 @@ export const ThreeJsFeature: FeatureConstructor = (app) => {
   app
     .child()
     .setPath('/')
-    .setElement(<Home />)
+    .setElement(<Home defaultPath="/intrinsic-2" />)
     .use(IntrinsicFeature)
     .use(Lesson03Feature)
     .use(Lesson05Feature)

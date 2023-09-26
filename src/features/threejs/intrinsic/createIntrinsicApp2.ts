@@ -43,7 +43,13 @@ function addCubesAlongCurve(
     res.transparent = true
     return res
   })
-  // const edgeGeometry = new THREE.EdgesGeometry(geometry)
+
+  const sub = size$.subscribe((size) => {
+    for (const mat of materials) {
+      mat.resolution = size
+      mat.needsUpdate = true
+    }
+  })
 
   function updateMesh(mesh: Cube, ind: number, time: number) {
     const ratio = ind / cubesNumber
@@ -91,6 +97,7 @@ function addCubesAlongCurve(
 
   return {
     dispose: () => {
+      sub.unsubscribe()
       scene.remove(...cubes)
     },
     meshes: cubes,
@@ -147,12 +154,18 @@ export default function createIntrinsicApp(
       // const axesHelper = new THREE.AxesHelper()
       // scene.add(axesHelper)
 
+      // the shape of the number eight as a curve
       const curve = new THREE.CatmullRomCurve3(
         [
-          new THREE.Vector3(-1, 0, 0),
-          new THREE.Vector3(-0.75, 0.5, 0.5),
-          new THREE.Vector3(0.75, -0.5, -0.5),
+          new THREE.Vector3(0, 0, 0),
           new THREE.Vector3(1, 0, 0),
+          new THREE.Vector3(1, 0, 1),
+          new THREE.Vector3(0, 0, 1),
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(0, 1, 0),
+          new THREE.Vector3(0, 1, 1),
+          new THREE.Vector3(0, 0, 1),
+          new THREE.Vector3(0, 0, 0),
         ],
         true,
       )
@@ -195,9 +208,9 @@ export default function createIntrinsicApp(
       gui
         .add(settings, 'cubesNumber')
         .min(1)
-        .max(50)
+        .max(128)
         .step(1)
-        .name('Cubes Number')
+        .name('Elements Number')
         .onChange(() => {
           cubes.dispose()
           cubes = addCubesAlongCurve(

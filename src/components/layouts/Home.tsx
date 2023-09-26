@@ -1,5 +1,5 @@
-import { useContext, useRef, useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { useContext, useEffect, useRef, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ApplicationContext } from '~/architecture/Context'
 import clsx from '~/packages/clsx'
 
@@ -65,7 +65,17 @@ function Sidebar() {
   )
 }
 
-export default function Home() {
+export default function Home({ defaultPath }: { defaultPath?: string }) {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (pathname === '/' && defaultPath) {
+      navigate(defaultPath)
+      return
+    }
+  }, [pathname, navigate, defaultPath])
+
   return (
     <div className="flex min-h-screen flex-col gap-4 pr-4 pt-4">
       <header className="ml-40 mr-auto flex grow-0 flex-col gap-5 pl-4">
