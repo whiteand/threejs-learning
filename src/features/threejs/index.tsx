@@ -8,6 +8,7 @@ import { Lesson07Feature } from '~/features/threejs/lesson07'
 import { Lesson08Feature } from '~/features/threejs/lesson08'
 import { Lesson10Feature } from '~/features/threejs/lesson10'
 import { Lesson11Feature } from '~/features/threejs/lesson11'
+import { Lesson32PostProcessingFeature } from '~/features/threejs/lesson32'
 
 export const ThreeJsFeature: FeatureConstructor = (app) => {
   app
@@ -22,4 +23,5 @@ export const ThreeJsFeature: FeatureConstructor = (app) => {
     .use(Lesson08Feature)
     .use(Lesson10Feature)
     .use(Lesson11Feature)
+    .use(Lesson32PostProcessingFeature)
 }

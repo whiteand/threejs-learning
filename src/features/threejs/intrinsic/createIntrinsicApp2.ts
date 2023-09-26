@@ -4,6 +4,8 @@ import { MeshLineGeometry, MeshLineMaterial } from 'meshline'
 import { BehaviorSubject, filter, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
 
 interface IAnimationSettings {
@@ -264,13 +266,18 @@ export default function createIntrinsicApp(
       controls.zoomSpeed = 0.5
       controls.enableDamping = true
 
-      renderer.render(scene, camera)
+      const effectComposer = new EffectComposer(renderer)
+
+      const renderPass = new RenderPass(scene, camera)
+      effectComposer.addPass(renderPass)
 
       const subscription = size$.subscribe((sizes) => {
         camera.aspect = sizes.x / sizes.y
         camera.updateProjectionMatrix()
         renderer.setSize(sizes.x, sizes.y)
         renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
+        effectComposer.setSize(sizes.x, sizes.y)
+        effectComposer.setPixelRatio(Math.min(2, window.devicePixelRatio))
       })
 
       const mousePosition$ = new BehaviorSubject<THREE.Vector2 | null>(null)
@@ -298,9 +305,7 @@ export default function createIntrinsicApp(
       settings.play()
 
       return {
-        renderer,
-        scene,
-        camera,
+        effectComposer,
         controls,
         subscription,
         mousePosition$,
@@ -308,9 +313,9 @@ export default function createIntrinsicApp(
         gui,
       }
     },
-    ({ scene, camera, renderer, controls }) => {
+    ({ effectComposer, controls }) => {
       controls.update()
-      renderer.render(scene, camera)
+      effectComposer.render()
     },
     ({ subscription, clock, controls, gui }) => {
       subscription.unsubscribe()
