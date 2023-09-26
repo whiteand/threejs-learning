@@ -31,13 +31,14 @@ function addCubesAlongCurve(
 
   geometry.scale(0.5, 0.5, 0.5)
 
-  const materials = Array.from({ length: cubesNumber }, () => {
+  const materials = Array.from({ length: cubesNumber }, (_, ind) => {
     const res = new MeshLineMaterial({
       color: 0xffffff,
       lineWidth: 0.05,
       resolution: size$.getValue(),
-      opacity: 0.5,
+      opacity: ind === 0 ? 1 : 0,
     })
+    res.depthTest = ind === 0 ? false : true
     res.transparent = true
     return res
   })
@@ -57,7 +58,15 @@ function addCubesAlongCurve(
         scene.add(mesh)
       }
       if (ratio < time) return
-      materials[ind].opacity = Math.pow(1 - Math.abs(time - ratio), 2)
+      const targetOpacity = Math.pow(1 - Math.abs(time - ratio), 2)
+      const appearinAnimationTime = THREE.MathUtils.clamp(
+        time / (0.1 + ratio * 0.4),
+        0,
+        1,
+      )
+      const easedAppearingTime = Math.pow(appearinAnimationTime, 2)
+      materials[ind].opacity = targetOpacity * easedAppearingTime
+      materials[ind].color.setHSL(ratio, 1, targetOpacity)
     }
   }
 
@@ -93,7 +102,7 @@ export default function createIntrinsicApp(
       const gui = new GUI()
       const settings = {
         bgColor: 0xd9d9d9,
-        cubesNumber: 20,
+        cubesNumber: 40,
         animationTime: 0,
         play() {
           gsap.fromTo(
