@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import gsap from 'gsap'
 import GUI from 'lil-gui'
 import { BehaviorSubject, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
@@ -7,26 +8,72 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
 
-function placeMesh(
-  _mesh: THREE.Mesh,
-  _curve: THREE.Curve<THREE.Vector3>,
-  _time: number,
-) {
-  // DO NOTHING
+function createShader(): THREE.ShaderMaterialParameters {
+  return {
+    transparent: true,
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: null },
+      uFraction: { value: 1 },
+      uCameraPosition: { value: null },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() { 
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+
+    fragmentShader: `
+     float random (vec2 st) {
+          return fract(sin(dot(st.xy,
+                              vec2(12.9898,78.233)))*
+              43758.5453123);
+      }
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uFraction;
+      uniform vec3 uColor;
+      float getNoiseValue() {
+        if (uFraction <= 0.0) return 0.0;
+        if (uFraction >= 1.0) return 1.0;
+        float randPos = random(vUv);
+        return randPos <= uFraction ? 1.0 : 0.0;
+      }
+      void main() {
+        float visible = getNoiseValue();
+        gl_FragColor = vec4(uColor, visible);
+      }
+    `,
+  }
 }
 
-function createShapeCurve() {
+function placeMesh(
+  mesh: THREE.Mesh,
+  curve: THREE.Curve<THREE.Vector3>,
+  time: number,
+) {
+  const t = THREE.MathUtils.clamp(time, 0, 1)
+  mesh.position.copy(curve.getPointAt(t))
+  mesh.lookAt(curve.getTangentAt(t))
+}
+
+function createShapeCurve(scale: number = 1) {
   const shapeCurve = new THREE.CurvePath<THREE.Vector3>()
   shapeCurve.add(
     new THREE.LineCurve3(
-      new THREE.Vector3(0, 0.5, 0),
-      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0.5, 0).multiplyScalar(scale),
+      new THREE.Vector3(0, 0, 0).multiplyScalar(scale),
     ),
   )
   shapeCurve.add(
     new THREE.LineCurve3(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0.5, -0.5, 0).normalize().multiplyScalar(0.5),
+      new THREE.Vector3(0, 0, 0).multiplyScalar(scale),
+      new THREE.Vector3(0.5, -0.5, 0)
+        .normalize()
+        .multiplyScalar(0.5)
+        .multiplyScalar(scale),
     ),
   )
   return shapeCurve
@@ -39,69 +86,193 @@ export default function createIntrinsicApp(
   return createApp(
     () => {
       const gui = new GUI()
+      const tweens: gsap.core.Tween[] = []
       const settings = {
-        uFraction: 0.5,
+        bgColor: 0xd9d9d9,
         uTime: 0,
         uColor: new THREE.Color(0.2, 0.4, 0.6),
         scale: 1,
-      }
-      const MAX_SCALE = 3
-      const MIN_SCALE = 1
-      const GEOMETRIES = 32
-      const shapeCurve = createShapeCurve()
-      const shapeGeometries = Array.from(
-        {
-          length: GEOMETRIES,
-        },
-        (_, i) => {
-          const ratio = i / (GEOMETRIES - 1)
-          const scale = THREE.MathUtils.lerp(MIN_SCALE, MAX_SCALE, ratio)
-          const shapeGeometry = new THREE.TubeGeometry(
-            shapeCurve,
-            64,
-            0.01 * scale,
-            10,
-            false,
+        elementsNumber: 64,
+        animationProgress: 0,
+        noisePower: 5,
+        lightPower: 2,
+        scalePower: 1,
+        maxScale: 5,
+        tubeRadius: 0.02,
+        yoyo: false,
+        duration: 5,
+        play() {
+          const cnt = gui
+            .controllersRecursive()
+            .find((c) => c.property === 'animationProgress')
+
+          const tween = gsap.fromTo(
+            this,
+            {
+              animationProgress: 0,
+            },
+            {
+              animationProgress: 1,
+              duration: this.duration,
+              ease: 'power2.inOut',
+              repeat: -1,
+              yoyo: this.yoyo,
+              onUpdate: () => {
+                cnt?.setValue(this.animationProgress)
+              },
+              onComplete: () => {
+                const ind = tweens.indexOf(tween)
+                if (ind >= 0) {
+                  tweens.splice(ind, 1)
+                  tween.kill()
+                }
+              },
+            },
           )
-          shapeGeometry.scale(scale, scale, scale)
-          return shapeGeometry
+          tweens.push(tween)
         },
-      )
+        stop() {
+          tweens.forEach((tween) => tween.kill())
+          tweens.splice(0, tweens.length)
+        },
+      }
+      gui.add(settings, 'play').name('Play')
+      gui.add(settings, 'stop').name('Stop')
+      gui
+        .add(settings, 'noisePower')
+        .min(1)
+        .max(10)
+        .name('Noise rate')
+        .onChange(refreshMeshes)
+      gui
+        .add(settings, 'maxScale')
+        .min(1)
+        .max(20)
+        .name('Max Scale')
+        .onChange(refreshMeshes)
+      gui
+        .add(settings, 'lightPower')
+        .min(1)
+        .max(10)
+        .name('Light rate')
+        .onChange(refreshMeshes)
+      gui
+        .add(settings, 'scalePower')
+        .min(1)
+        .max(10)
+        .name('Scale rate')
+        .onChange(refreshMeshes)
+      gui
+        .add(settings, 'duration')
+        .min(1)
+        .max(25)
+        .name('Animation Duration')
+        .onChange(() => {
+          settings.stop()
+          settings.play()
+        })
+      gui
+        .add(settings, 'yoyo')
+        .name('Yoyo')
+        .onChange(() => {
+          settings.stop()
+          settings.play()
+        })
+      gui
+        .add(settings, 'tubeRadius')
+        .min(0.01)
+        .max(2)
+        .name('Tube Radius')
+        .onChange(refreshMeshes)
+      function refreshMeshes() {
+        for (let i = 0; i < meshes.length; i++) {
+          const mesh = meshes[i]
+          handleFrameForMesh(settings, i, mesh)
+        }
+      }
+      const MIN_SCALE = 1
 
-      const getGeometry = (ratio: number) => {
-        if (ratio >= 1) {
-          return shapeGeometries[GEOMETRIES - 1]
-        }
-        if (ratio <= 0) {
-          return shapeGeometries[0]
-        }
-        const ind = Math.floor(ratio * GEOMETRIES)
-        return shapeGeometries[ind]
+      const createGeometry = (ratio: number) => {
+        const scale = THREE.MathUtils.lerp(
+          MIN_SCALE,
+          settings.maxScale,
+          Math.pow(ratio, settings.scalePower),
+        )
+        const shapeGeometry = new THREE.TubeGeometry(
+          createShapeCurve(scale),
+          64,
+          settings.tubeRadius * Math.pow(scale, 3),
+          10,
+          false,
+        )
+        shapeGeometry.center()
+        return shapeGeometry
       }
 
-      const setMeshAnimation = (
-        { uColor }: { uColor: THREE.Color },
+      const setNoiseOpacity = (
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
-        time: number,
+        opacity: number,
       ) => {
         if (mesh.material.uniforms.uFraction) {
-          mesh.material.uniforms.uFraction.value = time
+          mesh.material.uniforms.uFraction.value = opacity
           mesh.material.needsUpdate = true
         }
-        // Update color
+      }
+      const setLightnessLevel = (
+        { uColor }: { uColor: THREE.Color },
+        mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
+        visibleLevel: number,
+      ) => {
         if (mesh.material.uniforms.uColor) {
           const hsl = { h: 0, s: 0, l: 0 }
           uColor.getHSL(hsl)
           const newColor = uColor
             .clone()
-            .setHSL(hsl.h, hsl.s, THREE.MathUtils.lerp(0.5, 1, time))
+            .setHSL(hsl.h, hsl.s, THREE.MathUtils.lerp(0.5, 1, visibleLevel))
           mesh.material.uniforms.uColor.value = newColor
           mesh.material.needsUpdate = true
         }
-        // Update Scale
-        if (mesh.material.uniforms.uFraction) {
-          mesh.geometry = getGeometry(1 - time)
+      }
+      const setMeshSize = (
+        mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
+        additionalScale: number,
+      ) => {
+        mesh.geometry.dispose()
+        mesh.geometry = createGeometry(additionalScale).clone()
+      }
+      const handleFrameForMesh = (
+        settings: {
+          uColor: THREE.Color
+          animationProgress: number
+          elementsNumber: number
+          noisePower: number
+          lightPower: number
+          scalePower: number
+        },
+        meshIndex: number,
+        mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
+      ) => {
+        if (meshIndex === 0) {
+          setNoiseOpacity(mesh, 1)
+          setLightnessLevel(settings, mesh, 1)
+          setMeshSize(mesh, 0)
+          placeMesh(mesh, pathCurve, settings.animationProgress)
+          return
         }
+        const { animationProgress } = settings
+        const meshRatio = meshIndex / Math.max(1, settings.elementsNumber - 1)
+        if (animationProgress > meshRatio) {
+          setNoiseOpacity(mesh, 0)
+          return
+        }
+        const meshProgress = 1 - (meshRatio - animationProgress)
+
+        const noiseOpacity = Math.pow(meshProgress, settings.noisePower)
+        const lightnessLevel = Math.pow(meshProgress, settings.lightPower)
+
+        setNoiseOpacity(mesh, noiseOpacity)
+        setLightnessLevel(settings, mesh, lightnessLevel)
+        setMeshSize(mesh, 1 - meshProgress)
       }
 
       gui
@@ -117,86 +288,91 @@ export default function createIntrinsicApp(
           })
         })
 
-      gui
-        .add(settings, 'uFraction')
-        .min(0)
-        .max(1)
-        .step(0.01)
-        .name('Fraction of visible dots')
-        .onChange(() => {
-          meshes.forEach((mesh) => {
-            if (!mesh.material.uniforms) return
-            setMeshAnimation(settings, mesh, settings.uFraction)
-          })
-        })
-
       // Building Scene
       const scene = new THREE.Scene()
 
       const clock = new THREE.Clock()
 
-      const axesHelper = new THREE.AxesHelper()
-      scene.add(axesHelper)
+      // const axesHelper = new THREE.AxesHelper()
+      // scene.add(axesHelper)
+
+      const pathCurvePoints: THREE.Vector3[] = []
+      const MAX_Y = 2
+      for (let t = 0; t <= MAX_Y; t += 0.1) {
+        const r = Math.sin((t / MAX_Y) * Math.PI - Math.PI / 2)
+        const x = r * Math.sin(t * Math.PI * 2)
+        const z = r * Math.cos(t * Math.PI * 2)
+        const y = Math.sin(t) * 0.1
+        pathCurvePoints.push(new THREE.Vector3(x, y, z))
+      }
 
       // the shape of the number eight as a curve
-      const curve = new THREE.CatmullRomCurve3(
-        [
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(1, 0, 0),
-          new THREE.Vector3(1, 0, 1),
-          new THREE.Vector3(0, 0, 1),
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(0, 1, 0),
-          new THREE.Vector3(0, 1, 1),
-          new THREE.Vector3(0, 0, 1),
-          new THREE.Vector3(0, 0, 0),
-        ],
-        true,
-      )
+      const pathCurve = new THREE.CatmullRomCurve3(pathCurvePoints)
 
-      const shapeGeometry = getGeometry(settings.uFraction)
-      const NOISE_BLUR_SHADER = {
-        transparent: true,
-        uniforms: {
-          uTime: { value: 0 },
-          uColor: { value: null },
-          uFraction: { value: settings.uFraction },
+      const setupMeshes = (
+        settings: {
+          elementsNumber: number
+          uColor: THREE.Color
+          animationProgress: number
+          noisePower: number
+          lightPower: number
+          scalePower: number
         },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() { 
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
+        curve: THREE.Curve<THREE.Vector3>,
+      ) => {
+        const meshes: Array<
+          THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>
+        > = []
 
-        fragmentShader: `
-         float random (vec2 st) {
-              return fract(sin(dot(st.xy,
-                                  vec2(12.9898,78.233)))*
-                  43758.5453123);
-          }
-          varying vec2 vUv;
-          uniform float uTime;
-          uniform float uFraction;
-          uniform vec3 uColor;
-          void main() {
-            float randPos = random(vUv);
-            float visible = step(randPos, uFraction);
+        for (let i = 0; i < settings.elementsNumber; i++) {
+          const shapeMaterial = new THREE.ShaderMaterial(createShader())
+          // shapeMaterial.side = THREE.DoubleSide
+          shapeMaterial.uniforms.uColor.value = settings.uColor
+          const mesh = new THREE.Mesh(createGeometry(0).clone(), shapeMaterial)
 
-            gl_FragColor = vec4(uColor, visible);
-          }
-        `,
+          const meshRatio = i / Math.max(1, settings.elementsNumber - 1)
+          placeMesh(mesh, curve, meshRatio)
+
+          handleFrameForMesh(settings, i, mesh)
+
+          mesh.material.depthTest = false
+          mesh.material.blending = THREE.NormalBlending
+
+          meshes.push(mesh)
+        }
+
+        return meshes
       }
-      const shapeMaterial = new THREE.ShaderMaterial(NOISE_BLUR_SHADER)
-      shapeMaterial.uniforms.uColor.value = settings.uColor
-      // shapeMaterial.side = THREE.DoubleSide
 
-      const shapeMesh = new THREE.Mesh(shapeGeometry, shapeMaterial)
+      const meshes = setupMeshes(settings, pathCurve)
 
-      placeMesh(shapeMesh, curve, 0)
+      scene.add(...meshes)
 
-      scene.add(shapeMesh)
+      gui
+        .add(settings, 'elementsNumber')
+        .min(1)
+        .max(256)
+        .step(1)
+        .name('Elements number')
+        .onChange(() => {
+          scene.remove(...meshes)
+          meshes.splice(0, meshes.length)
+          meshes.push(...setupMeshes(settings, pathCurve))
+          scene.add(...meshes)
+        })
+
+      gui
+        .add(settings, 'animationProgress')
+        .min(0)
+        .max(1)
+        .step(0.01)
+        .name('Progress')
+        .onChange(() => {
+          for (let i = 0; i < meshes.length; i++) {
+            const mesh = meshes[i]
+            handleFrameForMesh(settings, i, mesh)
+          }
+        })
 
       // Camera
       const camera = new THREE.PerspectiveCamera(
@@ -204,7 +380,7 @@ export default function createIntrinsicApp(
         size$.getValue().x / size$.getValue().y,
       )
 
-      camera.position.set(2, 2, 5)
+      camera.position.set(1, MAX_Y / 2, -3)
       camera.lookAt(new THREE.Vector3())
 
       scene.add(camera)
@@ -221,7 +397,7 @@ export default function createIntrinsicApp(
       })
 
       renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
-      // renderer.setClearColor(settings.bgColor, 1)
+      renderer.setClearColor(settings.bgColor, 1)
       renderer.setSize(size$.getValue().x, size$.getValue().y)
 
       const controls = new OrbitControls(camera, renderer.domElement)
@@ -256,17 +432,26 @@ export default function createIntrinsicApp(
           .subscribe(mousePosition$),
       )
 
-      const meshes = [shapeMesh]
-
       const onFrame = () => {
-        for (const mesh of meshes) {
+        if (tweens.length > 0) {
+          // camera.lookAt(meshes[0].position)
+        }
+        for (let i = 0; i < meshes.length; i++) {
+          const mesh = meshes[i]
           if (!mesh.material.uniforms) continue
           if (mesh.material.uniforms.uTime) {
             mesh.material.uniforms.uTime.value = clock.getElapsedTime()
             mesh.material.needsUpdate = true
           }
+          if (mesh.material.uniforms.uCameraPosition) {
+            mesh.material.uniforms.uCameraPosition.value = camera.position
+            mesh.material.needsUpdate = true
+          }
         }
       }
+      onFrame()
+
+      settings.play()
 
       return {
         effectComposer,
@@ -276,6 +461,7 @@ export default function createIntrinsicApp(
         clock,
         gui,
         onFrame,
+        tweens,
       }
     },
     ({ effectComposer, controls, onFrame }) => {
@@ -285,11 +471,14 @@ export default function createIntrinsicApp(
 
       effectComposer.render()
     },
-    ({ subscription, clock, controls, gui }) => {
+    ({ subscription, clock, tweens, controls, gui }) => {
       subscription.unsubscribe()
       clock.stop()
       controls.dispose()
       gui.destroy()
+      for (const t of tweens) {
+        t.kill()
+      }
     },
   )
 }
