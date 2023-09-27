@@ -79,6 +79,31 @@ export default function createIntrinsicApp(
         return shapeGeometries[ind]
       }
 
+      const setMeshAnimation = (
+        { uColor }: { uColor: THREE.Color },
+        mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
+        time: number,
+      ) => {
+        if (mesh.material.uniforms.uFraction) {
+          mesh.material.uniforms.uFraction.value = time
+          mesh.material.needsUpdate = true
+        }
+        // Update color
+        if (mesh.material.uniforms.uColor) {
+          const hsl = { h: 0, s: 0, l: 0 }
+          uColor.getHSL(hsl)
+          const newColor = uColor
+            .clone()
+            .setHSL(hsl.h, hsl.s, THREE.MathUtils.lerp(0.5, 1, time))
+          mesh.material.uniforms.uColor.value = newColor
+          mesh.material.needsUpdate = true
+        }
+        // Update Scale
+        if (mesh.material.uniforms.uFraction) {
+          mesh.geometry = getGeometry(1 - time)
+        }
+      }
+
       gui
         .addColor(settings, 'uColor')
         .name('Shape Color')
@@ -101,27 +126,7 @@ export default function createIntrinsicApp(
         .onChange(() => {
           meshes.forEach((mesh) => {
             if (!mesh.material.uniforms) return
-            if (mesh.material.uniforms.uFraction) {
-              mesh.material.uniforms.uFraction.value = settings.uFraction
-              mesh.material.needsUpdate = true
-            }
-            // Update color
-            if (mesh.material.uniforms.uColor) {
-              const hsl = { h: 0, s: 0, l: 0 }
-              settings.uColor.getHSL(hsl)
-              const newColor = settings.uColor
-                .clone()
-                .setHSL(
-                  hsl.h,
-                  hsl.s,
-                  THREE.MathUtils.lerp(0.5, 1, settings.uFraction),
-                )
-              mesh.material.uniforms.uColor.value = newColor
-            }
-            // Update Scale
-            if (mesh.material.uniforms.uFraction) {
-              mesh.geometry = getGeometry(1 - settings.uFraction)
-            }
+            setMeshAnimation(settings, mesh, settings.uFraction)
           })
         })
 
