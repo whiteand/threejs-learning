@@ -7,7 +7,7 @@ import {
 } from 'react-router-dom'
 import { ApplicationContext } from '~/architecture/Context'
 import { Module } from './Module'
-import { IApplication, IMenuItem, IModule } from './types'
+import { IApplication, IModule, TMenuItem } from './types'
 
 export class Application implements IApplication {
   private modules: IModule[]
@@ -41,7 +41,7 @@ export class Application implements IApplication {
   }
 
   getMenuItems(menu: string) {
-    const items: IMenuItem[] = []
+    const items: TMenuItem[] = []
     for (const mod of this.modules) {
       items.push(...mod.getMenuItems(menu))
     }

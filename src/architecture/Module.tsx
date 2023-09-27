@@ -1,5 +1,5 @@
 import { Outlet, RouteObject } from 'react-router-dom'
-import { IApplication, IMenuItem, IModule } from '~/architecture/types'
+import { IApplication, IModule, TMenuItem } from '~/architecture/types'
 import Title from '~/components/Title'
 import { assert } from '~/packages/assert'
 
@@ -9,7 +9,7 @@ export class Module implements IModule {
   private element: JSX.Element | null
   private children: IModule[]
   private title: string | null
-  private menus: Record<string, IMenuItem>
+  private menus: Record<string, TMenuItem>
   constructor({ baseUrl }: { baseUrl: string }) {
     this.baseUrl = baseUrl
     this.path = null
@@ -89,7 +89,7 @@ export class Module implements IModule {
     this.title = title
     return this
   }
-  getMenuItems(menu: string): IMenuItem[] {
+  getMenuItems(menu: string): TMenuItem[] {
     const childItems = this.children.flatMap((child) =>
       child.getMenuItems(menu),
     )

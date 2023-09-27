@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ApplicationContext } from '~/architecture/Context'
+import { TMenuItem } from '~/architecture/types'
 import clsx from '~/packages/clsx'
 
 function Sidebar() {
@@ -16,6 +17,22 @@ function Sidebar() {
   const handleOpen = () => {
     setVisible(true)
   }
+
+  const renderMenuItem = (item: TMenuItem) => {
+    if ('children' in item) {
+      return null
+    }
+    return (
+      <Link
+        to={item.path}
+        key={item.path}
+        className="cursor-pointer whitespace-nowrap hover:text-white"
+      >
+        {item.title}
+      </Link>
+    )
+  }
+
   return (
     <>
       <div
@@ -50,15 +67,7 @@ function Sidebar() {
             },
           )}
         >
-          {app.getMenuItems('main').map((link) => (
-            <Link
-              to={link.path}
-              key={link.path}
-              className="cursor-pointer whitespace-nowrap hover:text-white"
-            >
-              {link.title}
-            </Link>
-          ))}
+          {app.getMenuItems('main').map(renderMenuItem)}
         </nav>
       </aside>
     </>
