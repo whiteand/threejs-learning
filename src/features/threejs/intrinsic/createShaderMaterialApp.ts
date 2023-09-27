@@ -8,6 +8,18 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
 
+class PathCurve extends THREE.Curve<THREE.Vector3> {
+  constructor() {
+    super()
+  }
+  getPoint(t: number) {
+    const tx = t * 3 - 1.5
+    const ty = Math.sin(2 * Math.PI * t)
+    const tz = 0
+    return new THREE.Vector3(tx, ty, tz)
+  }
+}
+
 function createShader(): THREE.ShaderMaterialParameters {
   return {
     transparent: true,
@@ -55,7 +67,8 @@ function placeMesh(
   time: number,
 ) {
   const t = THREE.MathUtils.clamp(time, 0, 1)
-  mesh.position.copy(curve.getPointAt(t))
+  mesh.rotation.y = t
+  mesh.position.z = curve.getPointAt(t).x
   mesh.lookAt(curve.getTangentAt(t))
 }
 
@@ -88,20 +101,23 @@ export default function createIntrinsicApp(
       const gui = new GUI()
       const tweens: gsap.core.Tween[] = []
       const settings = {
-        bgColor: 0xd9d9d9,
+        // bgColor: 0xd9d9d9,
+        bgColor: 0xeaeaea,
         uTime: 0,
-        uColor: new THREE.Color(0.2, 0.4, 0.6),
+        startShapeColor: new THREE.Color(0.2, 0.4, 0.6),
+        endShapeColor: new THREE.Color(0.2, 0.6, 0.4),
         scale: 1,
-        elementsNumber: 64,
+        elementsNumber: 48,
         animationProgress: 0,
-        noisePower: 5,
+        noisePower: 2,
         lightPower: 2,
         scalePower: 1,
-        maxScale: 5,
+        maxScale: 2,
         tubeRadius: 0.02,
         yoyo: false,
         duration: 5,
         play() {
+          console.log(camera.position)
           const cnt = gui
             .controllersRecursive()
             .find((c) => c.property === 'animationProgress')
@@ -144,12 +160,7 @@ export default function createIntrinsicApp(
         .max(10)
         .name('Noise rate')
         .onChange(refreshMeshes)
-      gui
-        .add(settings, 'maxScale')
-        .min(1)
-        .max(20)
-        .name('Max Scale')
-        .onChange(refreshMeshes)
+
       gui
         .add(settings, 'lightPower')
         .min(1)
@@ -161,6 +172,12 @@ export default function createIntrinsicApp(
         .min(1)
         .max(10)
         .name('Scale rate')
+        .onChange(refreshMeshes)
+      gui
+        .add(settings, 'maxScale')
+        .min(1)
+        .max(20)
+        .name('Max Scale')
         .onChange(refreshMeshes)
       gui
         .add(settings, 'duration')
@@ -193,15 +210,16 @@ export default function createIntrinsicApp(
       const MIN_SCALE = 1
 
       const createGeometry = (ratio: number) => {
+        const actualRatio = Math.pow(ratio, settings.scalePower)
         const scale = THREE.MathUtils.lerp(
           MIN_SCALE,
           settings.maxScale,
-          Math.pow(ratio, settings.scalePower),
+          actualRatio,
         )
         const shapeGeometry = new THREE.TubeGeometry(
           createShapeCurve(scale),
           64,
-          settings.tubeRadius * Math.pow(scale, 3),
+          settings.tubeRadius * scale,
           10,
           false,
         )
@@ -219,14 +237,27 @@ export default function createIntrinsicApp(
         }
       }
       const setLightnessLevel = (
-        { uColor }: { uColor: THREE.Color },
+        {
+          startShapeColor,
+          endShapeColor,
+          elementsNumber,
+        }: {
+          startShapeColor: THREE.Color
+          endShapeColor: THREE.Color
+          elementsNumber: number
+        },
+        ind: number,
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
         visibleLevel: number,
       ) => {
         if (mesh.material.uniforms.uColor) {
+          const color = startShapeColor
+            .clone()
+            .lerp(endShapeColor, ind / Math.max(1, elementsNumber - 1))
           const hsl = { h: 0, s: 0, l: 0 }
-          uColor.getHSL(hsl)
-          const newColor = uColor
+
+          color.getHSL(hsl)
+          const newColor = color
             .clone()
             .setHSL(hsl.h, hsl.s, THREE.MathUtils.lerp(0.5, 1, visibleLevel))
           mesh.material.uniforms.uColor.value = newColor
@@ -242,7 +273,8 @@ export default function createIntrinsicApp(
       }
       const handleFrameForMesh = (
         settings: {
-          uColor: THREE.Color
+          startShapeColor: THREE.Color
+          endShapeColor: THREE.Color
           animationProgress: number
           elementsNumber: number
           noisePower: number
@@ -254,7 +286,7 @@ export default function createIntrinsicApp(
       ) => {
         if (meshIndex === 0) {
           setNoiseOpacity(mesh, 1)
-          setLightnessLevel(settings, mesh, 1)
+          setLightnessLevel(settings, meshIndex, mesh, 1)
           setMeshSize(mesh, 0)
           placeMesh(mesh, pathCurve, settings.animationProgress)
           return
@@ -265,28 +297,24 @@ export default function createIntrinsicApp(
           setNoiseOpacity(mesh, 0)
           return
         }
-        const meshProgress = 1 - (meshRatio - animationProgress)
+        const meshProgress = 1 - (meshRatio - animationProgress) / meshRatio
 
         const noiseOpacity = Math.pow(meshProgress, settings.noisePower)
         const lightnessLevel = Math.pow(meshProgress, settings.lightPower)
 
         setNoiseOpacity(mesh, noiseOpacity)
-        setLightnessLevel(settings, mesh, lightnessLevel)
+        setLightnessLevel(settings, meshIndex, mesh, lightnessLevel)
         setMeshSize(mesh, 1 - meshProgress)
       }
 
       gui
-        .addColor(settings, 'uColor')
-        .name('Shape Color')
-        .onChange(() => {
-          meshes.forEach((mesh) => {
-            if (!mesh.material.uniforms) return
-            if (mesh.material.uniforms.uColor) {
-              mesh.material.uniforms.uColor.value = settings.uColor
-              mesh.material.needsUpdate = true
-            }
-          })
-        })
+        .addColor(settings, 'startShapeColor')
+        .name('Start Shape Color')
+        .onChange(refreshMeshes)
+      gui
+        .addColor(settings, 'endShapeColor')
+        .name('End Shape Color')
+        .onChange(refreshMeshes)
 
       // Building Scene
       const scene = new THREE.Scene()
@@ -296,23 +324,14 @@ export default function createIntrinsicApp(
       // const axesHelper = new THREE.AxesHelper()
       // scene.add(axesHelper)
 
-      const pathCurvePoints: THREE.Vector3[] = []
-      const MAX_Y = 2
-      for (let t = 0; t <= MAX_Y; t += 0.1) {
-        const r = Math.sin((t / MAX_Y) * Math.PI - Math.PI / 2)
-        const x = r * Math.sin(t * Math.PI * 2)
-        const z = r * Math.cos(t * Math.PI * 2)
-        const y = Math.sin(t) * 0.1
-        pathCurvePoints.push(new THREE.Vector3(x, y, z))
-      }
-
       // the shape of the number eight as a curve
-      const pathCurve = new THREE.CatmullRomCurve3(pathCurvePoints)
+      const pathCurve = new PathCurve()
 
       const setupMeshes = (
         settings: {
           elementsNumber: number
-          uColor: THREE.Color
+          startShapeColor: THREE.Color
+          endShapeColor: THREE.Color
           animationProgress: number
           noisePower: number
           lightPower: number
@@ -327,10 +346,15 @@ export default function createIntrinsicApp(
         for (let i = 0; i < settings.elementsNumber; i++) {
           const shapeMaterial = new THREE.ShaderMaterial(createShader())
           // shapeMaterial.side = THREE.DoubleSide
-          shapeMaterial.uniforms.uColor.value = settings.uColor
+          const meshRatio = i / Math.max(1, settings.elementsNumber - 1)
+          shapeMaterial.uniforms.uColor.value = settings.startShapeColor
+            .clone()
+            .lerp(
+              settings.endShapeColor,
+              i / Math.max(1, settings.elementsNumber - 2),
+            )
           const mesh = new THREE.Mesh(createGeometry(0).clone(), shapeMaterial)
 
-          const meshRatio = i / Math.max(1, settings.elementsNumber - 1)
           placeMesh(mesh, curve, meshRatio)
 
           handleFrameForMesh(settings, i, mesh)
@@ -380,7 +404,7 @@ export default function createIntrinsicApp(
         size$.getValue().x / size$.getValue().y,
       )
 
-      camera.position.set(1, MAX_Y / 2, -3)
+      camera.position.set(-1, 0.05, 1.3)
       camera.lookAt(new THREE.Vector3())
 
       scene.add(camera)
