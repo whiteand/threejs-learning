@@ -37,7 +37,7 @@ function Sidebar() {
     <>
       <div
         className={clsx('transition-all duration-500', {
-          'w-40': visible,
+          'w-56': visible,
           'w-5': !visible,
         })}
       />
@@ -46,7 +46,7 @@ function Sidebar() {
         className={clsx(
           'fixed bottom-0 left-0 top-0 flex flex-col items-end justify-start gap-2 overflow-x-hidden border-r border-r-gray-750 transition-all duration-500',
           {
-            'w-40': visible,
+            'w-56': visible,
             'w-5': !visible,
           },
         )}
@@ -87,7 +87,7 @@ export default function Home({ defaultPath }: { defaultPath?: string }) {
 
   return (
     <div className="flex min-h-screen flex-col gap-4 pr-4 pt-4">
-      <header className="ml-40 mr-auto flex grow-0 flex-col gap-5 pl-4">
+      <header className="ml-56 mr-auto flex grow-0 flex-col gap-5 pl-4">
         <h1>Three.js Journey</h1>
       </header>
       <div className="flex min-h-0 grow items-stretch gap-4">

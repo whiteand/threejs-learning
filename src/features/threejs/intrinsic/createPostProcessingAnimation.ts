@@ -7,7 +7,6 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { DotScreenPass } from 'three/examples/jsm/postprocessing/DotScreenPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js'
-import { MaskPass } from 'three/examples/jsm/postprocessing/MaskPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js'
@@ -275,8 +274,6 @@ export default function createIntrinsicApp(
 
       const renderPass = new RenderPass(scene, camera)
       effectComposer.addPass(renderPass)
-      const maskPass = new MaskPass(scene, camera)
-      effectComposer.addPass(maskPass)
       const dotScreenPass = new DotScreenPass()
       dotScreenPass.enabled = false
       gui.add(dotScreenPass, 'enabled').name('Dot Screen Pass')
