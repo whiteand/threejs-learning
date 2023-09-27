@@ -13,8 +13,8 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
     super()
   }
   getPoint(t: number) {
-    const tx = t * 3 - 1.5
-    const ty = Math.sin(2 * Math.PI * t)
+    const tx = Math.cos(2 * Math.PI * t)
+    const ty = Math.sin(Math.PI * t)
     const tz = 0
     return new THREE.Vector3(tx, ty, tz)
   }
@@ -67,8 +67,7 @@ function placeMesh(
   time: number,
 ) {
   const t = THREE.MathUtils.clamp(time, 0, 1)
-  mesh.rotation.y = t
-  mesh.position.z = curve.getPointAt(t).x
+  mesh.position.copy(curve.getPointAt(t))
   mesh.lookAt(curve.getTangentAt(t))
 }
 
@@ -109,10 +108,10 @@ export default function createIntrinsicApp(
         scale: 1,
         elementsNumber: 48,
         animationProgress: 0,
-        noisePower: 2,
+        noisePower: 1,
         lightPower: 2,
-        scalePower: 1,
-        maxScale: 2,
+        scalePower: 2,
+        maxScale: 3,
         tubeRadius: 0.02,
         yoyo: false,
         duration: 5,
@@ -285,7 +284,10 @@ export default function createIntrinsicApp(
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
       ) => {
         if (meshIndex === 0) {
-          setNoiseOpacity(mesh, 1)
+          setNoiseOpacity(
+            mesh,
+            Math.pow(Math.min(1, settings.animationProgress / 0.5), 2),
+          )
           setLightnessLevel(settings, meshIndex, mesh, 1)
           setMeshSize(mesh, 0)
           placeMesh(mesh, pathCurve, settings.animationProgress)
@@ -404,7 +406,11 @@ export default function createIntrinsicApp(
         size$.getValue().x / size$.getValue().y,
       )
 
-      camera.position.set(-1, 0.05, 1.3)
+      camera.position.set(
+        -1.2133121276276189,
+        1.5621370985967478,
+        0.30429811964085773,
+      )
       camera.lookAt(new THREE.Vector3())
 
       scene.add(camera)
