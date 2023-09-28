@@ -145,6 +145,12 @@ export default function createIntrinsicApp(
       gui.add(settings, 'play').name('Play')
       gui.add(settings, 'stop').name('Stop')
       gui
+        .addColor(settings, 'bgColor')
+        .name('BG Color')
+        .onChange((value: number) => {
+          renderer.setClearColor(value)
+        })
+      gui
         .add(settings, 'noisePower')
         .min(1)
         .max(10)
