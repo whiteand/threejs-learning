@@ -1,14 +1,33 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import gsap from 'gsap'
 import GUI from 'lil-gui'
 import { BehaviorSubject, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import {
+  FigureMesh,
+  IGlobalSettings,
+} from '~/features/threejs/intrinsic/createLayeredApp/types'
 import { createApp } from '~/packages/interactive-app'
 import { createComposeShader } from '~/shaders/compose/createShader'
+import { createNoiseShader } from '~/shaders/noise/createShader'
+import { createShapeCurve } from './createShapeCurve'
 import { renderMainLayer } from './renderMainLayer'
 import { renderSecondLayer } from './renderSecondLayer'
+
+class PathCurve extends THREE.Curve<THREE.Vector3> {
+  constructor() {
+    super()
+  }
+  getPoint(t: number) {
+    const x = Math.sin(t * Math.PI * 2)
+    const y = Math.cos(t * Math.PI * 2)
+    const z = t * 0.1
+    return new THREE.Vector3(x, y, z)
+  }
+}
 
 export default function createLayeredApp(
   canvas: HTMLCanvasElement,
@@ -16,8 +35,65 @@ export default function createLayeredApp(
 ) {
   return createApp(
     () => {
+      const tweens: gsap.core.Tween[] = []
+      const settings: IGlobalSettings = {
+        time: 0,
+        duration: 5,
+        play() {
+          this.stop()
+          const cnt = gui.controllers.find((c) => c.property === 'time')
+
+          const tween = gsap.fromTo(
+            this,
+            {
+              time: 0,
+            },
+            {
+              time: 1,
+              repeat: -1,
+              yoyo: false,
+              duration: this.duration,
+              onComplete: () => {
+                const ind = tweens.indexOf(tween)
+                if (ind >= 0) {
+                  tweens.splice(ind, 1)
+                }
+              },
+              onUpdate: () => {
+                cnt?.setValue(settings.time)
+              },
+              onStart: () => {
+                console.log(
+                  `camera.position.set(${camera.position.x}, ${camera.position.y}, ${camera.position.z})`,
+                )
+              },
+            },
+          )
+          tweens.push(tween)
+        },
+        stop() {
+          tweens.forEach((tween) => tween.kill())
+          tweens.splice(0, tweens.length)
+        },
+      }
+
       const gui = new GUI()
       gui.close()
+
+      gui.add(settings, 'play').name('Play')
+      gui.add(settings, 'stop').name('Stop')
+      gui.add(settings, 'time').min(0).max(1).step(0.001).name('Time')
+      gui
+        .add(settings, 'duration')
+        .min(0)
+        .max(20)
+        .step(0.1)
+        .name('Duration')
+        .onChange(() => {
+          if (tweens.length > 0) {
+            settings.play()
+          }
+        })
 
       const camera = new THREE.PerspectiveCamera(
         75,
@@ -26,7 +102,11 @@ export default function createLayeredApp(
         100,
       )
 
-      camera.position.set(3, 3, 3)
+      camera.position.set(
+        3.507639018776456e-7,
+        -1.5566343379644363,
+        0.0000015165998643485532,
+      )
       camera.lookAt(new THREE.Vector3())
 
       // Renderer
@@ -38,17 +118,51 @@ export default function createLayeredApp(
       // renderer.setClearColor(settings.bgColor, 1)
       renderer.setSize(size$.getValue().x, size$.getValue().y)
 
+      const pathCurve = new PathCurve()
+      const placeMesh = (mesh: FigureMesh, traectoryPosition: number) => {
+        const curvePoint = pathCurve.getPointAt(traectoryPosition)
+        const curveTangent = pathCurve.getTangentAt(traectoryPosition)
+        mesh.position.copy(curvePoint)
+        mesh.lookAt(curveTangent)
+      }
+      const shapeGeometry = new THREE.TubeGeometry(
+        createShapeCurve(),
+        64,
+        0.01,
+        32,
+        false,
+      )
+
       const mainLayer = renderMainLayer({
         size$,
         camera,
         renderer,
         gui: gui.addFolder('Main Layer'),
+        placeMesh,
+        meshBuilder: () =>
+          new THREE.Mesh(
+            shapeGeometry,
+            new THREE.MeshBasicMaterial({
+              color: new THREE.Color(1, 1, 1),
+            }),
+          ),
+        settings,
       })
+
       const secondLayer = renderSecondLayer({
         size$,
         camera,
         renderer,
         gui: gui.addFolder('Second Layer Layer'),
+        meshBuilder: () => {
+          const material = new THREE.ShaderMaterial(createNoiseShader())
+          material.uniforms.uColor.value = new THREE.Color(0.2, 0.4, 0.6)
+          material.uniforms.uFraction.value = 1
+          material.uniforms.uScale.value = 1
+          return new THREE.Mesh(shapeGeometry, material)
+        },
+        placeMesh,
+        settings,
       })
 
       const controls = new OrbitControls(camera, renderer.domElement)
@@ -57,7 +171,6 @@ export default function createLayeredApp(
 
       const effectComposer = new EffectComposer(renderer)
       const shaderPass = new ShaderPass(createComposeShader())
-      console.log(shaderPass.material.uniforms)
       shaderPass.material.uniforms.uMainTexture.value = mainLayer.getTexture()
       shaderPass.material.uniforms.uSecondaryTexture.value =
         secondLayer.getTexture()
@@ -92,6 +205,8 @@ export default function createLayeredApp(
 
       const clock = new THREE.Clock(true)
 
+      settings.play()
+
       return {
         effectComposer,
         controls,
@@ -100,21 +215,23 @@ export default function createLayeredApp(
         clock,
         mainLayer,
         secondLayer,
+        settings,
         gui,
       }
     },
-    ({ effectComposer, mainLayer, secondLayer, controls }) => {
-      mainLayer.update()
-      secondLayer.update()
+    ({ effectComposer, settings, mainLayer, secondLayer, controls }) => {
+      mainLayer.update(settings)
+      secondLayer.update(settings)
 
       controls.update()
 
       effectComposer.render()
     },
-    ({ subscription, clock, controls, gui }) => {
+    ({ subscription, clock, settings, controls, gui }) => {
       subscription.unsubscribe()
       clock.stop()
       controls.dispose()
+      settings.stop()
       gui.destroy()
     },
   )

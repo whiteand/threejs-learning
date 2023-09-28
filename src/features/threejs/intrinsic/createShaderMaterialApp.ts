@@ -29,7 +29,7 @@ interface ISettings {
   stop(): void
 }
 
-function easeInOut(t: number, power: number) {
+function easeInOut(t: number, power: number): number {
   if (t < 0.5) {
     return Math.pow(2 * t, power) / 2
   }
@@ -107,7 +107,6 @@ export default function createIntrinsicApp(
         yoyo: false,
         duration: 5,
         play() {
-          console.log(camera.position)
           const cnt = gui
             .controllersRecursive()
             .find((c) => c.property === 'animationProgress')

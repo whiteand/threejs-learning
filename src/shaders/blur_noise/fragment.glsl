@@ -36,6 +36,6 @@ float random(vec2 st) {
 }
 void main() {
     float r = random(vUv + vec2(1.) * uAngle);
-    r = r > uFraction ? 1. : 0.;
+    r = r > (1. - uFraction) ? 1. : 0.;
     gl_FragColor = r * blur13(tDiffuse, vUv, vec2(float(uResolution.x), float(uResolution.y)), uBlur);
 }
