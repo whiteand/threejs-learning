@@ -4,10 +4,7 @@ float random(vec2 st) {
 }
 uniform float uFraction;
 uniform vec3 uColor;
-
 varying vec2 vUv;
-varying vec3 vNormal;
-uniform vec3 uCameraDirection;
 
 float getNoiseValue() {
     if(uFraction <= 0.0)
@@ -19,16 +16,7 @@ float getNoiseValue() {
 }
 
 float getMatCapValue() {
-    if(uFraction >= 1.) {
-        return 1.0;
-    }
-    vec3 normal = normalize(vNormal);
-
-    // Calculate the dot product between camera direction and the normal
-    float dotProduct = dot(uCameraDirection, normal);
-
-    float res = 1. - abs(dotProduct);
-    return res;
+    return 1.0;
 }
 
 void main() {

@@ -8,6 +8,7 @@ export function createShader(): THREE.ShaderMaterialParameters {
       uColor: { value: null },
       uFraction: { value: 1 },
       uCameraDirection: { value: null },
+      uScale: { value: null },
     },
     vertexShader,
     fragmentShader,

@@ -44,7 +44,7 @@ function Sidebar() {
       <aside
         ref={sidebarRef}
         className={clsx(
-          'fixed bottom-0 left-0 top-0 flex flex-col items-end justify-start gap-2 overflow-x-hidden border-r border-r-gray-750 transition-all duration-500',
+          'fixed bottom-0 left-0 top-0 z-10 flex flex-col items-end justify-start gap-2 overflow-x-hidden border-r border-r-gray-750 transition-all duration-500',
           {
             'w-56': visible,
             'w-5': !visible,

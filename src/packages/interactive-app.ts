@@ -1,4 +1,5 @@
 import { fromEvent, interval, take, takeUntil } from 'rxjs'
+import Stats from 'stats.js'
 import { doNothing } from '~/packages/doNothing'
 
 export interface InteractiveApp<Ctx = unknown> {
@@ -26,6 +27,15 @@ export function runApp<T>(app: InteractiveApp<T>): () => void {
     ctx = app.run()
   }
 
+  const stats = new Stats()
+  stats.showPanel(1)
+  stats.showPanel(0)
+  document.body.appendChild(stats.dom)
+  stats.dom.style.right = '0px'
+  stats.dom.style.bottom = '0px'
+  stats.dom.style.left = 'auto'
+  stats.dom.style.top = 'auto'
+
   let frames = 0
 
   const click$ = fromEvent(window, 'click').pipe(take(1))
@@ -43,7 +53,9 @@ export function runApp<T>(app: InteractiveApp<T>): () => void {
       return
     }
     frames = requestAnimationFrame(onFrame)
+    stats.begin()
     app.onFrame(ctx, time)
+    stats.end()
   }
 
   if (app.onFrame) {
@@ -51,6 +63,7 @@ export function runApp<T>(app: InteractiveApp<T>): () => void {
   }
 
   return () => {
+    document.body.removeChild(stats.dom)
     cancelAnimationFrame(frames)
     sub.unsubscribe()
     if (app.destroy) app.destroy(ctx)

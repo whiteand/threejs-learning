@@ -9,6 +9,13 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
 import { createShader } from './shaders/noise/createShader'
 
+function easeInOut(t: number, power: number) {
+  if (t < 0.5) {
+    return Math.pow(2 * t, power) / 2
+  }
+  return 1 - Math.pow(2 * (1 - t), power) / 2
+}
+
 class PathCurve extends THREE.Curve<THREE.Vector3> {
   constructor() {
     super()
@@ -68,7 +75,7 @@ export default function createIntrinsicApp(
         scale: 1,
         elementsNumber: 48,
         animationProgress: 0,
-        noisePower: 1,
+        noisePower: 1.5,
         lightPower: 2,
         scalePower: 2,
         maxScale: 3,
@@ -168,17 +175,11 @@ export default function createIntrinsicApp(
       }
       const MIN_SCALE = 1
 
-      const createGeometry = (ratio: number) => {
-        const actualRatio = Math.pow(ratio, settings.scalePower)
-        const scale = THREE.MathUtils.lerp(
-          MIN_SCALE,
-          settings.maxScale,
-          actualRatio,
-        )
+      const createGeometry = () => {
         const shapeGeometry = new THREE.TubeGeometry(
-          createShapeCurve(scale),
+          createShapeCurve(1),
           64,
-          settings.tubeRadius * scale,
+          settings.tubeRadius,
           10,
           false,
         )
@@ -227,8 +228,13 @@ export default function createIntrinsicApp(
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
         additionalScale: number,
       ) => {
-        mesh.geometry.dispose()
-        mesh.geometry = createGeometry(additionalScale).clone()
+        const actualRatio = easeInOut(additionalScale, settings.scalePower)
+        const scale = THREE.MathUtils.lerp(
+          MIN_SCALE,
+          settings.maxScale,
+          actualRatio,
+        )
+        mesh.material.uniforms.uScale.value = scale
       }
       const handleFrameForMesh = (
         settings: {
@@ -244,10 +250,7 @@ export default function createIntrinsicApp(
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
       ) => {
         if (meshIndex === 0) {
-          setNoiseOpacity(
-            mesh,
-            Math.pow(Math.min(1, settings.animationProgress / 0.5), 2),
-          )
+          setNoiseOpacity(mesh, 1)
           setLightnessLevel(settings, meshIndex, mesh, 1)
           setMeshSize(mesh, 0)
           placeMesh(mesh, pathCurve, settings.animationProgress)
@@ -261,8 +264,13 @@ export default function createIntrinsicApp(
         }
         const meshProgress = 1 - (meshRatio - animationProgress) / meshRatio
 
-        const noiseOpacity = Math.pow(meshProgress, settings.noisePower)
-        const lightnessLevel = Math.pow(meshProgress, settings.lightPower)
+        const noiseOpacityProgress =
+          meshProgress * 0.8 + Math.min(1, animationProgress / 0.1) * 0.2
+        const noiseOpacity = easeInOut(
+          noiseOpacityProgress,
+          settings.noisePower,
+        )
+        const lightnessLevel = easeInOut(meshProgress, settings.lightPower)
 
         setNoiseOpacity(mesh, noiseOpacity)
         setLightnessLevel(settings, meshIndex, mesh, lightnessLevel)
@@ -315,7 +323,7 @@ export default function createIntrinsicApp(
               settings.endShapeColor,
               i / Math.max(1, settings.elementsNumber - 2),
             )
-          const mesh = new THREE.Mesh(createGeometry(0).clone(), shapeMaterial)
+          const mesh = new THREE.Mesh(createGeometry().clone(), shapeMaterial)
 
           placeMesh(mesh, curve, meshRatio)
 

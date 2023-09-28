@@ -1,9 +1,8 @@
 varying vec2 vUv;
-varying vec3 vNormal;
+uniform float uScale;
 
 void main() {
     vUv = uv;
-    vNormal = normalize(normalMatrix * normal);
-
-    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+    vec3 scaledPosition = position * uScale;
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(scaledPosition, 1.0);
 }
