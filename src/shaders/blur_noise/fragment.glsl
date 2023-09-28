@@ -1,15 +1,17 @@
 uniform sampler2D tDiffuse;
 uniform ivec2 uResolution;
+uniform float uFraction;
 uniform float uBlur;
+uniform float uAngle;
 
 varying vec2 vUv;
 
 vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, float blur) {
     vec4 color = vec4(0.0);
 
-    float a1 = 0.7853981633974483;
-    float a2 = 1.5707963267948966;
-    float a3 = 2.356194490192345;
+    float a1 = 0.7853981633974483 + uAngle;
+    float a2 = 1.5707963267948966 + uAngle;
+    float a3 = 2.356194490192345 + uAngle;
 
     vec2 dir1 = vec2(cos(a1), sin(a1));
     vec2 dir2 = vec2(cos(a2), sin(a2));
@@ -28,6 +30,12 @@ vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, float blur) {
     return color;
 }
 
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) *
+        43758.5453123);
+}
 void main() {
-    gl_FragColor = blur13(tDiffuse, vUv, vec2(float(uResolution.x), float(uResolution.y)), uBlur);
+    float r = random(vUv + vec2(1.) * uAngle);
+    r = r > uFraction ? 1. : 0.;
+    gl_FragColor = r * blur13(tDiffuse, vUv, vec2(float(uResolution.x), float(uResolution.y)), uBlur);
 }

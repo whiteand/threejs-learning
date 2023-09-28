@@ -8,6 +8,8 @@ export function createBlurNoiseShader(): THREE.ShaderMaterialParameters {
       tDiffuse: { value: null },
       uResolution: { value: null },
       uBlur: { value: 0.0 },
+      uAngle: { value: 0.0 },
+      uFraction: { value: 1.0 },
     },
     name: 'BlurSecondaryLayout',
     vertexShader,
