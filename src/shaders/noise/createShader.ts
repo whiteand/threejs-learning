@@ -1,7 +1,7 @@
 import fragmentShader from './fragment.glsl'
 import vertexShader from './vertex.glsl'
 
-export function createShader(): THREE.ShaderMaterialParameters {
+export function createNoiseShader(): THREE.ShaderMaterialParameters {
   return {
     transparent: true,
     uniforms: {

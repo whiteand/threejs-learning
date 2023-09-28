@@ -7,7 +7,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
-import { createShader } from './shaders/noise/createShader'
+import { createNoiseShader } from '~/shaders/noise/createShader'
 
 interface ISettings {
   bgColor: number
@@ -336,7 +336,7 @@ export default function createIntrinsicApp(
         > = []
 
         for (let i = 0; i < settings.elementsNumber; i++) {
-          const shapeMaterial = new THREE.ShaderMaterial(createShader())
+          const shapeMaterial = new THREE.ShaderMaterial(createNoiseShader())
           // shapeMaterial.side = THREE.DoubleSide
           const meshRatio = i / Math.max(1, settings.elementsNumber - 1)
           shapeMaterial.uniforms.uColor.value = settings.startShapeColor

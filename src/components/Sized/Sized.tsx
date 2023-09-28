@@ -28,7 +28,7 @@ export default function Sized({
       const { width, height } = rect
       if (lastSize.width === width && lastSize.height === height) return
       lastSize = rect
-      size$.next(new Vector2(width, height))
+      size$.next(new Vector2(Math.floor(width), Math.floor(height)))
       if (!sized) {
         setSized(true)
         sized = true

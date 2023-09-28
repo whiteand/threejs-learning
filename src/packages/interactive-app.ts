@@ -40,7 +40,7 @@ export function runApp<T>(app: InteractiveApp<T>): () => void {
 
   const click$ = fromEvent(window, 'click').pipe(take(1))
 
-  const sub = interval(5000)
+  const sub = interval(60000)
     .pipe(take(1), takeUntil(click$))
     .subscribe(() => {
       // Reload window

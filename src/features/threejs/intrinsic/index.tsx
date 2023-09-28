@@ -1,6 +1,7 @@
 import { FeatureConstructor } from '~/architecture/types'
 import CanvasApp from '~/components/CanvasApp'
 import createCubesByPathAnimation from './createCubesByPathAnimation'
+import createLayeredApp from './createLayeredApp'
 import createPostProcessingAnimation from './createPostProcessingAnimation'
 import createShaderMaterialApp from './createShaderMaterialApp'
 
@@ -23,4 +24,10 @@ export const IntrinsicFeature: FeatureConstructor = (app) => {
     .setTitle('Intrinsic 3')
     .setElement(<CanvasApp createApp={createShaderMaterialApp} />)
     .showInMenu('main', 'Intrinsic 3 | Shader', 0)
+  app
+    .child()
+    .setPath('/intrinsic-4')
+    .setTitle('Intrinsic 4')
+    .setElement(<CanvasApp createApp={createLayeredApp} />)
+    .showInMenu('main', 'Intrinsic 4 | Layers', 0)
 }

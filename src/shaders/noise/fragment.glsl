@@ -1,10 +1,11 @@
+uniform float uFraction;
+uniform vec3 uColor;
+varying vec2 vUv;
+
 float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) *
         43758.5453123);
 }
-uniform float uFraction;
-uniform vec3 uColor;
-varying vec2 vUv;
 
 float getNoiseValue() {
     if(uFraction <= 0.0)
