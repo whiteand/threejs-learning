@@ -7,6 +7,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
+import { createShader } from './shaders/noise/createShader'
 
 class PathCurve extends THREE.Curve<THREE.Vector3> {
   constructor() {
@@ -17,47 +18,6 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
     const ty = Math.sin(Math.PI * t)
     const tz = 0
     return new THREE.Vector3(tx, ty, tz)
-  }
-}
-
-function createShader(): THREE.ShaderMaterialParameters {
-  return {
-    transparent: true,
-    uniforms: {
-      uTime: { value: 0 },
-      uColor: { value: null },
-      uFraction: { value: 1 },
-      uCameraPosition: { value: null },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() { 
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-
-    fragmentShader: `
-     float random (vec2 st) {
-          return fract(sin(dot(st.xy,
-                              vec2(12.9898,78.233)))*
-              43758.5453123);
-      }
-      varying vec2 vUv;
-      uniform float uTime;
-      uniform float uFraction;
-      uniform vec3 uColor;
-      float getNoiseValue() {
-        if (uFraction <= 0.0) return 0.0;
-        if (uFraction >= 1.0) return 1.0;
-        float randPos = random(vUv);
-        return randPos <= uFraction ? 1.0 : 0.0;
-      }
-      void main() {
-        float visible = getNoiseValue();
-        gl_FragColor = vec4(uColor, visible);
-      }
-    `,
   }
 }
 

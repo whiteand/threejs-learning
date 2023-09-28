@@ -1,3 +1,4 @@
+import { fromEvent, interval, take, takeUntil } from 'rxjs'
 import { doNothing } from '~/packages/doNothing'
 
 export interface InteractiveApp<Ctx = unknown> {
@@ -27,6 +28,15 @@ export function runApp<T>(app: InteractiveApp<T>): () => void {
 
   let frames = 0
 
+  const click$ = fromEvent(window, 'click').pipe(take(1))
+
+  const sub = interval(5000)
+    .pipe(take(1), takeUntil(click$))
+    .subscribe(() => {
+      // Reload window
+      window.location.reload()
+    })
+
   function onFrame(time: DOMHighResTimeStamp) {
     if (!app.onFrame) {
       frames = 0
@@ -42,6 +52,7 @@ export function runApp<T>(app: InteractiveApp<T>): () => void {
 
   return () => {
     cancelAnimationFrame(frames)
+    sub.unsubscribe()
     if (app.destroy) app.destroy(ctx)
   }
 }
