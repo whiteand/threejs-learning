@@ -42,7 +42,7 @@ export function renderSecondLayer({
 
   const shaderPass = new ShaderPass(createBlurNoiseShader())
 
-  shaderPass.material.uniforms.uBlur.value = 2
+  shaderPass.material.uniforms.uBlur.value = 4
 
   gui
     .add(shaderPass.material.uniforms.uBlur, 'value')
