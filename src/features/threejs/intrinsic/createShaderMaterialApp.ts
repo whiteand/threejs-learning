@@ -9,6 +9,26 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { createApp } from '~/packages/interactive-app'
 import { createShader } from './shaders/noise/createShader'
 
+interface ISettings {
+  bgColor: number
+  uTime: number
+  startShapeColor: THREE.Color
+  endShapeColor: THREE.Color
+  scale: number
+  elementsNumber: number
+  animationProgress: number
+  noisePower: number
+  maxNoiseLevel: number
+  lightPower: number
+  scalePower: number
+  maxScale: number
+  tubeRadius: number
+  yoyo: boolean
+  duration: number
+  play(): void
+  stop(): void
+}
+
 function easeInOut(t: number, power: number) {
   if (t < 0.5) {
     return Math.pow(2 * t, power) / 2
@@ -38,23 +58,24 @@ function placeMesh(
   mesh.lookAt(curve.getTangentAt(t))
 }
 
-function createShapeCurve(scale: number = 1) {
+function createShapeCurve() {
   const shapeCurve = new THREE.CurvePath<THREE.Vector3>()
-  shapeCurve.add(
-    new THREE.LineCurve3(
-      new THREE.Vector3(0, 0.5, 0).multiplyScalar(scale),
-      new THREE.Vector3(0, 0, 0).multiplyScalar(scale),
-    ),
-  )
-  shapeCurve.add(
-    new THREE.LineCurve3(
-      new THREE.Vector3(0, 0, 0).multiplyScalar(scale),
-      new THREE.Vector3(0.5, -0.5, 0)
-        .normalize()
-        .multiplyScalar(0.5)
-        .multiplyScalar(scale),
-    ),
-  )
+  const a = new THREE.Vector3(0, 0.5)
+  const b = new THREE.Vector3(-0.5, 0)
+  const c = new THREE.Vector3(0, -0.5)
+  const d = new THREE.Vector3(0.5, 0)
+
+  const edges = [
+    [a, b],
+    [b, c],
+    [c, d],
+    [d, a],
+  ]
+
+  for (const [from, to] of edges) {
+    shapeCurve.add(new THREE.LineCurve3(from, to))
+  }
+
   return shapeCurve
 }
 
@@ -64,9 +85,11 @@ export default function createIntrinsicApp(
 ) {
   return createApp(
     () => {
-      const gui = new GUI()
+      const gui = new GUI({
+        width: size$.getValue().x,
+      })
       const tweens: gsap.core.Tween[] = []
-      const settings = {
+      const settings: ISettings = {
         // bgColor: 0xd9d9d9,
         bgColor: 0xeaeaea,
         uTime: 0,
@@ -76,6 +99,7 @@ export default function createIntrinsicApp(
         elementsNumber: 48,
         animationProgress: 0,
         noisePower: 1.5,
+        maxNoiseLevel: 0.3,
         lightPower: 2,
         scalePower: 2,
         maxScale: 3,
@@ -126,6 +150,13 @@ export default function createIntrinsicApp(
         .max(10)
         .name('Noise rate')
         .onChange(refreshMeshes)
+      gui
+        .add(settings, 'maxNoiseLevel')
+        .min(0)
+        .max(1)
+        .step(0.01)
+        .name('Max Noise Level')
+        .onChange(refreshMeshes)
 
       gui
         .add(settings, 'lightPower')
@@ -175,9 +206,10 @@ export default function createIntrinsicApp(
       }
       const MIN_SCALE = 1
 
+      const shapeCurve = createShapeCurve()
       const createGeometry = () => {
         const shapeGeometry = new THREE.TubeGeometry(
-          createShapeCurve(1),
+          shapeCurve,
           64,
           settings.tubeRadius,
           10,
@@ -186,6 +218,7 @@ export default function createIntrinsicApp(
         shapeGeometry.center()
         return shapeGeometry
       }
+      const shapeGeometry = createGeometry()
 
       const setNoiseOpacity = (
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
@@ -237,15 +270,7 @@ export default function createIntrinsicApp(
         mesh.material.uniforms.uScale.value = scale
       }
       const handleFrameForMesh = (
-        settings: {
-          startShapeColor: THREE.Color
-          endShapeColor: THREE.Color
-          animationProgress: number
-          elementsNumber: number
-          noisePower: number
-          lightPower: number
-          scalePower: number
-        },
+        settings: ISettings,
         meshIndex: number,
         mesh: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>,
       ) => {
@@ -266,10 +291,9 @@ export default function createIntrinsicApp(
 
         const noiseOpacityProgress =
           meshProgress * 0.8 + Math.min(1, animationProgress / 0.1) * 0.2
-        const noiseOpacity = easeInOut(
-          noiseOpacityProgress,
-          settings.noisePower,
-        )
+        const noiseOpacity =
+          easeInOut(noiseOpacityProgress, settings.noisePower) *
+          settings.maxNoiseLevel
         const lightnessLevel = easeInOut(meshProgress, settings.lightPower)
 
         setNoiseOpacity(mesh, noiseOpacity)
@@ -298,15 +322,7 @@ export default function createIntrinsicApp(
       const pathCurve = new PathCurve()
 
       const setupMeshes = (
-        settings: {
-          elementsNumber: number
-          startShapeColor: THREE.Color
-          endShapeColor: THREE.Color
-          animationProgress: number
-          noisePower: number
-          lightPower: number
-          scalePower: number
-        },
+        settings: ISettings,
         curve: THREE.Curve<THREE.Vector3>,
       ) => {
         const meshes: Array<
@@ -323,7 +339,7 @@ export default function createIntrinsicApp(
               settings.endShapeColor,
               i / Math.max(1, settings.elementsNumber - 2),
             )
-          const mesh = new THREE.Mesh(createGeometry().clone(), shapeMaterial)
+          const mesh = new THREE.Mesh(shapeGeometry, shapeMaterial)
 
           placeMesh(mesh, curve, meshRatio)
 
@@ -375,9 +391,9 @@ export default function createIntrinsicApp(
       )
 
       camera.position.set(
-        -1.2133121276276189,
-        1.5621370985967478,
-        0.30429811964085773,
+        -0.2884524476323129,
+        0.9844982048260172,
+        1.9658694959069598,
       )
       camera.lookAt(meshes[0].position)
 
@@ -408,6 +424,10 @@ export default function createIntrinsicApp(
       effectComposer.addPass(renderPass)
 
       const subscription = size$.subscribe((sizes) => {
+        gui.domElement.style.setProperty(
+          '--width',
+          `${Math.min(300, sizes.x)}px`,
+        )
         camera.aspect = sizes.x / sizes.y
         camera.updateProjectionMatrix()
         renderer.setSize(sizes.x, sizes.y)
