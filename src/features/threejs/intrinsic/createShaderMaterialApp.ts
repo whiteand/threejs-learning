@@ -15,7 +15,7 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
   }
   getPoint(t: number) {
     const tx = Math.cos(2 * Math.PI * t)
-    const ty = Math.sin(Math.PI * t)
+    const ty = Math.sin(2 * Math.PI * t)
     const tz = 0
     return new THREE.Vector3(tx, ty, tz)
   }
@@ -371,7 +371,7 @@ export default function createIntrinsicApp(
         1.5621370985967478,
         0.30429811964085773,
       )
-      camera.lookAt(new THREE.Vector3())
+      camera.lookAt(meshes[0].position)
 
       scene.add(camera)
 
@@ -423,18 +423,12 @@ export default function createIntrinsicApp(
       )
 
       const onFrame = () => {
-        if (tweens.length > 0) {
-          // camera.lookAt(meshes[0].position)
-        }
-        for (let i = 0; i < meshes.length; i++) {
-          const mesh = meshes[i]
-          if (!mesh.material.uniforms) continue
-          if (mesh.material.uniforms.uTime) {
-            mesh.material.uniforms.uTime.value = clock.getElapsedTime()
-            mesh.material.needsUpdate = true
-          }
-          if (mesh.material.uniforms.uCameraPosition) {
-            mesh.material.uniforms.uCameraPosition.value = camera.position
+        const cameraDirection = new THREE.Vector3()
+        camera.getWorldDirection(cameraDirection)
+
+        for (const mesh of meshes) {
+          if (mesh.material.uniforms.uCameraDirection) {
+            mesh.material.uniforms.uCameraDirection.value = cameraDirection
             mesh.material.needsUpdate = true
           }
         }
