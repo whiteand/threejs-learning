@@ -163,7 +163,7 @@ export default function createLayeredApp(
         size$,
         camera,
         renderer,
-        gui: gui.addFolder('Main Layer'),
+        gui: gui,
         placeMesh,
         meshBuilder: () =>
           new THREE.Mesh(
@@ -179,7 +179,7 @@ export default function createLayeredApp(
         size$,
         camera,
         renderer,
-        gui: gui.addFolder('Second Layer Layer'),
+        gui: gui.addFolder('Second Layer'),
         meshBuilder: () => {
           const material = new THREE.MeshBasicMaterial({
             color: new THREE.Color(0, 0, 0),
