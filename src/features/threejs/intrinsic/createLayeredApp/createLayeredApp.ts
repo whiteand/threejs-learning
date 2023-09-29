@@ -21,13 +21,13 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
   constructor() {
     super()
   }
-  getPoint(t: number) {
+  getPointAt(t: number) {
     const x = Math.sin(t * Math.PI * 2)
     const y = Math.cos(t * Math.PI * 2)
-    const z = t * 0.1
+    const z = t * Math.sin(t * Math.PI * 2) * 0.1
     return new THREE.Vector3(x, y, z)
   }
-  getTangent(
+  getTangentAt(
     t: number,
     optionalTarget?: THREE.Vector3 | undefined,
   ): THREE.Vector3 {
@@ -63,6 +63,7 @@ export default function createLayeredApp(
               repeat: -1,
               yoyo: false,
               duration: this.duration,
+              ease: 'power2.inOut',
               onComplete: () => {
                 const ind = tweens.indexOf(tween)
                 if (ind >= 0) {
@@ -133,9 +134,6 @@ export default function createLayeredApp(
       camera.lookAt(new THREE.Vector3())
 
       // Renderer
-      const renderer2 = new THREE.WebGLRenderer({
-        alpha: true,
-      })
       const renderer = new THREE.WebGLRenderer({
         canvas,
         alpha: true,

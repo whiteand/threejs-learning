@@ -18,6 +18,19 @@ interface ISecondLayerSettings {
   blurPassesNumber: number
 }
 
+function setNoiseOpacity(
+  mesh: FigureMesh<THREE.ShaderMaterial>,
+  opacity: number,
+) {}
+
+function getNoiseOpacity(progress: number) {
+  const DISSAPPEAR_DURATION = 0.01
+  if (progress <= 1 - DISSAPPEAR_DURATION) {
+    return progress / (1 - DISSAPPEAR_DURATION)
+  }
+  return (1 - progress) / DISSAPPEAR_DURATION
+}
+
 function updateMesh(
   globalSettings: IGlobalSettings,
   settings: ISecondLayerSettings,
@@ -32,8 +45,9 @@ function updateMesh(
     return
   }
   const progress = 1 - (meshRatio - time) / meshRatio
+
   mesh.material.uniforms.uScale.value = 1 + (1 - progress) * maxScale
-  mesh.material.uniforms.uFraction.value = progress
+  mesh.material.uniforms.uFraction.value = getNoiseOpacity(progress)
 }
 
 export function renderSecondLayer({
