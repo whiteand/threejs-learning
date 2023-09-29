@@ -16,12 +16,10 @@ interface ISecondLayerSettings {
   maxScale: number
   elementsNumber: number
   blurPassesNumber: number
+  startColor: THREE.Color
+  endColor: THREE.Color
+  colorPower: number
 }
-
-function setNoiseOpacity(
-  mesh: FigureMesh<THREE.ShaderMaterial>,
-  opacity: number,
-) {}
 
 function getNoiseOpacity(progress: number) {
   const DISSAPPEAR_DURATION = 0.01
@@ -31,6 +29,7 @@ function getNoiseOpacity(progress: number) {
   return (1 - progress) / DISSAPPEAR_DURATION
 }
 
+const WHITE = new THREE.Color(1, 1, 1)
 function updateMesh(
   globalSettings: IGlobalSettings,
   settings: ISecondLayerSettings,
@@ -38,7 +37,8 @@ function updateMesh(
   mesh: FigureMesh<THREE.ShaderMaterial>,
 ): void {
   const { time } = globalSettings
-  const { elementsNumber, maxScale } = settings
+  const { elementsNumber, maxScale, startColor, endColor, colorPower } =
+    settings
   const meshRatio = getItemRatio(elementsNumber, index)
   if (time >= meshRatio) {
     mesh.material.uniforms.uFraction.value = 0
@@ -48,6 +48,10 @@ function updateMesh(
 
   mesh.material.uniforms.uScale.value = 1 + (1 - progress) * maxScale
   mesh.material.uniforms.uFraction.value = getNoiseOpacity(progress)
+
+  mesh.material.uniforms.uColor.value
+    .lerpColors(startColor, endColor, meshRatio)
+    .lerp(WHITE, Math.pow(progress, colorPower))
 }
 
 export function renderSecondLayer({
@@ -77,8 +81,16 @@ export function renderSecondLayer({
     // uFraction: 1,
     elementsNumber: 64,
     blurPassesNumber: 1,
+    startColor: new THREE.Color(1, 0, 1),
+    endColor: new THREE.Color(0x61ff4d),
     maxScale: 1.5,
+    colorPower: 4,
   }
+
+  gui.addColor(settings, 'startColor').name('Start Color')
+  gui.addColor(settings, 'endColor').name('End Color')
+  gui.add(settings, 'colorPower').min(1).max(10).step(1).name('Color Power')
+
   const scene = new THREE.Scene()
 
   const meshes: FigureMesh<THREE.ShaderMaterial>[] = []

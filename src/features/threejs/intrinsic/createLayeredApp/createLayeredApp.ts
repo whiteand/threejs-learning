@@ -180,7 +180,7 @@ export default function createLayeredApp(
         gui: gui.addFolder('Second Layer Layer'),
         meshBuilder: () => {
           const material = new THREE.ShaderMaterial(createNoiseShader())
-          material.uniforms.uColor.value = new THREE.Color(0.2, 0.4, 0.6)
+          material.uniforms.uColor.value = new THREE.Color(1, 1, 1)
           material.uniforms.uFraction.value = 1
           material.uniforms.uScale.value = 1
           return new THREE.Mesh(shapeGeometry, material)
