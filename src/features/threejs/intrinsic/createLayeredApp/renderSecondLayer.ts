@@ -4,8 +4,12 @@ import * as THREE from 'three'
 import { BloomPass } from 'three/examples/jsm/postprocessing/BloomPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { SavePass } from 'three/examples/jsm/postprocessing/SavePass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorShader.js'
 import { ILayer } from './ILayer'
 import { getItemRatio } from './getItemRatio'
+import { createNoiseShader } from './noiseShader'
 import { FigureMesh, IGlobalSettings } from './types'
 
 type Material = THREE.MeshBasicMaterial
@@ -21,6 +25,11 @@ interface ISecondLayerSettings {
   blurKernelSize: number
   blurSigma: number
   blurEnabled: boolean
+  noiseSize: number
+}
+
+function getSizeValue(noiseSize: number) {
+  return 1024 / noiseSize ** 2
 }
 
 function getOpacity(progress: number) {
@@ -84,6 +93,7 @@ export function renderSecondLayer({
     blurKernelSize: 25,
     blurSigma: 4,
     blurEnabled: true,
+    noiseSize: 1.5,
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -113,6 +123,7 @@ export function renderSecondLayer({
       const mesh = meshes[i]
       updateMesh(globalSettings, settings, i, mesh)
     }
+    noiseShaderPass.uniforms.uTime.value = globalSettings.time
   }
 
   const renderTarget = new THREE.WebGLRenderTarget(
@@ -133,10 +144,8 @@ export function renderSecondLayer({
     .name('Max Scale')
     .onChange(() => refreshMeshes(initialGlobalSettings))
 
-  const effectComposer = new EffectComposer(renderer, renderTarget)
+  const effectComposer = new EffectComposer(renderer)
   effectComposer.renderToScreen = false
-  // We want render target to be a write buffer
-  effectComposer.swapBuffers()
 
   const renderPass = new RenderPass(scene, camera)
   effectComposer.addPass(renderPass)
@@ -189,7 +198,53 @@ export function renderSecondLayer({
 
   effectComposer.addPass(bloomPass)
 
+  const specialEffectsGui = gui.addFolder('Special Effects')
+
+  const noiseShaderPass = new ShaderPass(createNoiseShader()) as ShaderPass & {
+    uniforms: ReturnType<typeof createNoiseShader>['uniforms']
+  }
+
+  noiseShaderPass.enabled = true
+  specialEffectsGui
+    .add(noiseShaderPass, 'enabled')
+    .name('Dot Screen Enabled')
+    .onChange((enabled: boolean) => {
+      if (enabled) {
+        noiseFolder.show()
+      } else {
+        noiseFolder.hide()
+      }
+    })
+  const noiseFolder = specialEffectsGui.addFolder('Noise')
+  // noiseFolder.hide()
+
+  noiseShaderPass.uniforms.uSize.value = getSizeValue(settings.noiseSize)
+
+  noiseFolder
+    .add(settings, 'noiseSize')
+    .min(1)
+    .max(10)
+    .step(0.01)
+    .name('Noise Size')
+    .onChange(() => {
+      const res = getSizeValue(settings.noiseSize)
+      noiseShaderPass.uniforms.uSize.value = res
+    })
+
+  effectComposer.addPass(noiseShaderPass)
+
+  const sobelOperatorPass = new ShaderPass(SobelOperatorShader)
+  sobelOperatorPass.enabled = false
+  specialEffectsGui.add(sobelOperatorPass, 'enabled').name('Sobel Pass Enabled')
+  effectComposer.addPass(sobelOperatorPass)
+
+  effectComposer.addPass(new SavePass(renderTarget))
+
   const sub = size$.subscribe((sizes) => {
+    for (const pass of effectComposer.passes) {
+      pass.setSize(sizes.x, sizes.y)
+    }
+    sobelOperatorPass.material.uniforms.resolution.value.set(sizes.x, sizes.y)
     effectComposer.setSize(sizes.x, sizes.y)
     effectComposer.setPixelRatio(renderer.getPixelRatio())
   })
