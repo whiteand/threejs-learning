@@ -11,7 +11,7 @@ import {
   IGlobalSettings,
 } from '~/features/threejs/intrinsic/createLayeredApp/types'
 import { createApp } from '~/packages/interactive-app'
-import { createComposeShader } from '~/shaders/compose/createShader'
+import { createComposeShader } from '~/shaders/compose/createComposeShader'
 import { createNoiseShader } from '~/shaders/noise/createShader'
 import { createShapeCurve } from './createShapeCurve'
 import { renderMainLayer } from './renderMainLayer'
@@ -27,6 +27,15 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
     const z = t * 0.1
     return new THREE.Vector3(x, y, z)
   }
+  getTangent(
+    t: number,
+    optionalTarget?: THREE.Vector3 | undefined,
+  ): THREE.Vector3 {
+    const x = Math.cos(t * Math.PI * 2) * Math.PI * 2
+    const y = 0
+    const z = -Math.sin(t * Math.PI * 2) * Math.PI * 2
+    return optionalTarget?.set(x, y, z) || new THREE.Vector3(x, y, z)
+  }
 }
 
 export default function createLayeredApp(
@@ -39,6 +48,7 @@ export default function createLayeredApp(
       const settings: IGlobalSettings = {
         time: 0,
         duration: 5,
+        bgColor: new THREE.Color(0xeaeaea),
         play() {
           this.stop()
           const cnt = gui.controllers.find((c) => c.property === 'time')
@@ -80,10 +90,16 @@ export default function createLayeredApp(
       const gui = new GUI()
       gui.close()
 
-      gui.add(settings, 'play').name('Play')
-      gui.add(settings, 'stop').name('Stop')
-      gui.add(settings, 'time').min(0).max(1).step(0.001).name('Time')
-      gui
+      const animationFolder = gui.addFolder('Animation')
+      animationFolder.add(settings, 'play').name('Play')
+      animationFolder.add(settings, 'stop').name('Stop')
+      animationFolder
+        .add(settings, 'time')
+        .min(0)
+        .max(1)
+        .step(0.001)
+        .name('Time')
+      animationFolder
         .add(settings, 'duration')
         .min(0)
         .max(20)
@@ -93,6 +109,13 @@ export default function createLayeredApp(
           if (tweens.length > 0) {
             settings.play()
           }
+        })
+
+      gui
+        .addColor(settings, 'bgColor')
+        .name('Background Color')
+        .onChange(() => {
+          composerShaderPass.material.uniforms.uBgColor.value = settings.bgColor
         })
 
       const camera = new THREE.PerspectiveCamera(
@@ -110,6 +133,9 @@ export default function createLayeredApp(
       camera.lookAt(new THREE.Vector3())
 
       // Renderer
+      const renderer2 = new THREE.WebGLRenderer({
+        alpha: true,
+      })
       const renderer = new THREE.WebGLRenderer({
         canvas,
         alpha: true,
@@ -170,11 +196,13 @@ export default function createLayeredApp(
       controls.enableDamping = true
 
       const effectComposer = new EffectComposer(renderer)
-      const shaderPass = new ShaderPass(createComposeShader())
-      shaderPass.material.uniforms.uMainTexture.value = mainLayer.getTexture()
-      shaderPass.material.uniforms.uSecondaryTexture.value =
+      const composerShaderPass = new ShaderPass(createComposeShader())
+      composerShaderPass.material.uniforms.uMainTexture.value =
+        mainLayer.getTexture()
+      composerShaderPass.material.uniforms.uSecondaryTexture.value =
         secondLayer.getTexture()
-      effectComposer.addPass(shaderPass)
+      composerShaderPass.material.uniforms.uBgColor.value = settings.bgColor
+      effectComposer.addPass(composerShaderPass)
 
       const subscription = size$.subscribe((sizes) => {
         gui.domElement.style.setProperty(

@@ -27,7 +27,7 @@ function updateMesh(
   const { time } = globalSettings
   const { elementsNumber, maxScale } = settings
   const meshRatio = getItemRatio(elementsNumber, index)
-  if (time > meshRatio) {
+  if (time >= meshRatio) {
     mesh.material.uniforms.uFraction.value = 0
     return
   }
