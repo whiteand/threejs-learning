@@ -7,7 +7,6 @@ export function createComposeShader(): THREE.ShaderMaterialParameters {
     uniforms: {
       uMainTexture: { value: null },
       uSecondaryTexture: { value: null },
-      uBgColor: { value: null },
     },
     vertexShader,
     fragmentShader,

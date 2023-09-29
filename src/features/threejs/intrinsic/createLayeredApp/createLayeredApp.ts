@@ -12,7 +12,6 @@ import {
 } from '~/features/threejs/intrinsic/createLayeredApp/types'
 import { createApp } from '~/packages/interactive-app'
 import { createComposeShader } from '~/shaders/compose/createComposeShader'
-import { createNoiseShader } from '~/shaders/noise/createShader'
 import { createShapeCurve } from './createShapeCurve'
 import { renderMainLayer } from './renderMainLayer'
 import { renderSecondLayer } from './renderSecondLayer'
@@ -115,9 +114,11 @@ export default function createLayeredApp(
       gui
         .addColor(settings, 'bgColor')
         .name('Background Color')
-        .onChange(() => {
-          composerShaderPass.material.uniforms.uBgColor.value = settings.bgColor
-        })
+        .onChange(refreshBgColor)
+
+      function refreshBgColor() {
+        renderer.domElement.style.backgroundColor = settings.bgColor.getStyle()
+      }
 
       const camera = new THREE.PerspectiveCamera(
         75,
@@ -141,6 +142,7 @@ export default function createLayeredApp(
       renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
       // renderer.setClearColor(settings.bgColor, 1)
       renderer.setSize(size$.getValue().x, size$.getValue().y)
+      refreshBgColor()
 
       const pathCurve = new PathCurve()
       const placeMesh = (mesh: FigureMesh, traectoryPosition: number) => {
@@ -179,10 +181,12 @@ export default function createLayeredApp(
         renderer,
         gui: gui.addFolder('Second Layer Layer'),
         meshBuilder: () => {
-          const material = new THREE.ShaderMaterial(createNoiseShader())
-          material.uniforms.uColor.value = new THREE.Color(1, 1, 1)
-          material.uniforms.uFraction.value = 1
-          material.uniforms.uScale.value = 1
+          const material = new THREE.MeshBasicMaterial({
+            color: new THREE.Color(0, 0, 0),
+          })
+          // material.uniforms.uColor.value = new THREE.Color(1, 1, 1)
+          // material.uniforms.uFraction.value = 1
+          // material.uniforms.uScale.value = 1
           return new THREE.Mesh(shapeGeometry, material)
         },
         placeMesh,
@@ -199,7 +203,6 @@ export default function createLayeredApp(
         mainLayer.getTexture()
       composerShaderPass.material.uniforms.uSecondaryTexture.value =
         secondLayer.getTexture()
-      composerShaderPass.material.uniforms.uBgColor.value = settings.bgColor
       effectComposer.addPass(composerShaderPass)
 
       const subscription = size$.subscribe((sizes) => {
@@ -232,6 +235,7 @@ export default function createLayeredApp(
       const clock = new THREE.Clock(true)
 
       settings.play()
+      // document.body.style.backgroundColor = settings.bgColor.getStyle()
 
       return {
         effectComposer,
@@ -255,6 +259,7 @@ export default function createLayeredApp(
     },
     ({ subscription, clock, settings, controls, gui }) => {
       subscription.unsubscribe()
+      // document.body.style.backgroundColor = ''
       clock.stop()
       controls.dispose()
       settings.stop()

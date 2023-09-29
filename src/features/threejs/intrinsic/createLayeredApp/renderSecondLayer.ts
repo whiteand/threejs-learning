@@ -1,14 +1,14 @@
 import GUI from 'lil-gui'
 import { BehaviorSubject } from 'rxjs'
 import * as THREE from 'three'
+import { BloomPass } from 'three/examples/jsm/postprocessing/BloomPass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { createBlurNoiseShader } from '~/shaders/blur_noise/createShader'
 import { ILayer } from './ILayer'
 import { getItemRatio } from './getItemRatio'
 import { FigureMesh, IGlobalSettings } from './types'
+
+type Material = THREE.MeshBasicMaterial
 
 interface ISecondLayerSettings {
   uBlur: number
@@ -21,57 +21,54 @@ interface ISecondLayerSettings {
   colorPower: number
 }
 
-function getNoiseOpacity(progress: number) {
+function getOpacity(progress: number) {
   const DISSAPPEAR_DURATION = 0.01
   if (progress <= 1 - DISSAPPEAR_DURATION) {
-    return progress / (1 - DISSAPPEAR_DURATION)
+    return Math.pow(progress / (1 - DISSAPPEAR_DURATION), 2)
   }
   return (1 - progress) / DISSAPPEAR_DURATION
 }
 
-const WHITE = new THREE.Color(1, 1, 1)
+const WHITE_COLOR = new THREE.Color(1, 1, 1)
 function updateMesh(
   globalSettings: IGlobalSettings,
   settings: ISecondLayerSettings,
   index: number,
-  mesh: FigureMesh<THREE.ShaderMaterial>,
+  mesh: FigureMesh<Material>,
 ): void {
   const { time } = globalSettings
-  const { elementsNumber, maxScale, startColor, endColor, colorPower } =
-    settings
+  const { elementsNumber, maxScale, startColor, endColor } = settings
   const meshRatio = getItemRatio(elementsNumber, index)
   if (time >= meshRatio) {
-    mesh.material.uniforms.uFraction.value = 0
+    mesh.material.opacity = 0
     return
   }
   const progress = 1 - (meshRatio - time) / meshRatio
 
-  mesh.material.uniforms.uScale.value = 1 + (1 - progress) * maxScale
-  mesh.material.uniforms.uFraction.value = getNoiseOpacity(progress)
-
-  mesh.material.uniforms.uColor.value
+  const scale = 1 + (1 - progress) * maxScale
+  mesh.scale.set(scale, scale, scale)
+  mesh.material.opacity = getOpacity(progress)
+  mesh.material.color
     .lerpColors(startColor, endColor, meshRatio)
-    .lerp(WHITE, Math.pow(progress, colorPower))
+    .lerp(WHITE_COLOR, Math.pow(progress, settings.colorPower))
 }
 
 export function renderSecondLayer({
   size$,
   camera,
-  renderer,
+  // renderer,
   gui,
   meshBuilder,
   placeMesh,
   settings: initialGlobalSettings,
+  renderer,
 }: {
   size$: BehaviorSubject<THREE.Vector2>
   camera: THREE.Camera
   renderer: THREE.WebGLRenderer
   gui: GUI
-  meshBuilder: () => FigureMesh<THREE.ShaderMaterial>
-  placeMesh: (
-    mesh: FigureMesh<THREE.ShaderMaterial>,
-    traectoryPosition: number,
-  ) => void
+  meshBuilder: () => FigureMesh<Material>
+  placeMesh: (mesh: FigureMesh<Material>, traectoryPosition: number) => void
   settings: IGlobalSettings
 }): ILayer {
   const settings: ISecondLayerSettings = {
@@ -80,8 +77,8 @@ export function renderSecondLayer({
     uBlur: 2,
     // uFraction: 1,
     elementsNumber: 64,
-    blurPassesNumber: 1,
-    startColor: new THREE.Color(1, 0, 1),
+    blurPassesNumber: 0,
+    startColor: new THREE.Color(0x00eeff),
     endColor: new THREE.Color(0x61ff4d),
     maxScale: 1.5,
     colorPower: 4,
@@ -93,7 +90,7 @@ export function renderSecondLayer({
 
   const scene = new THREE.Scene()
 
-  const meshes: FigureMesh<THREE.ShaderMaterial>[] = []
+  const meshes: FigureMesh<Material>[] = []
 
   const refreshMeshes = (globalSettings: IGlobalSettings) => {
     if (meshes.length !== settings.elementsNumber) {
@@ -103,6 +100,7 @@ export function renderSecondLayer({
       meshes.splice(0, meshes.length)
       for (let i = 0; i < settings.elementsNumber; i++) {
         const mesh = meshBuilder()
+        mesh.material.transparent = true
         const meshRatio = getItemRatio(settings.elementsNumber, i)
         placeMesh(mesh, meshRatio)
         meshes.push(mesh)
@@ -123,28 +121,7 @@ export function renderSecondLayer({
       stencilBuffer: false,
     },
   )
-
-  const effectComposer = new EffectComposer(renderer, renderTarget)
-  effectComposer.addPass(new RenderPass(scene, camera))
-
-  const shaderPasses = [0, Math.PI / 4, Math.PI / 2].map((angle) => {
-    const shaderPass = new ShaderPass(createBlurNoiseShader())
-    shaderPass.material.uniforms.uBlur.value = settings.uBlur
-    shaderPass.material.uniforms.uFraction.value = settings.uFraction
-    shaderPass.material.uniforms.uAngle.value = angle
-    return shaderPass
-  })
-
-  const outputPasses = shaderPasses.map(() => new OutputPass())
-  for (let i = 0; i < shaderPasses.length; i++) {
-    effectComposer.addPass(shaderPasses[i])
-    effectComposer.addPass(outputPasses[i])
-    shaderPasses[i].enabled = i < settings.blurPassesNumber
-    outputPasses[i].enabled = i < settings.blurPassesNumber
-  }
-  if (settings.blurPassesNumber === 0) {
-    outputPasses[0].enabled = true
-  }
+  renderTarget.texture.name = 'SecondaryLayerTexture'
 
   gui
     .add(settings, 'maxScale')
@@ -154,67 +131,31 @@ export function renderSecondLayer({
     .name('Max Scale')
     .onChange(() => refreshMeshes(initialGlobalSettings))
 
-  gui
-    .add(settings, 'blurPassesNumber')
-    .min(0)
-    .max(shaderPasses.length)
-    .step(1)
-    .name('Blur Passes')
-    .onChange((value: number) => {
-      for (let i = 0; i < shaderPasses.length; i++) {
-        shaderPasses[i].enabled = i < value
-        outputPasses[i].enabled = i < value
-      }
-      if (value === 0) {
-        outputPasses[0].enabled = true
-      }
-    })
+  const effectComposer = new EffectComposer(renderer, renderTarget)
+  effectComposer.renderToScreen = false
+  // We want render target to be a write buffer
+  effectComposer.swapBuffers()
 
-  gui
-    .add(settings, 'uBlur')
-    .min(0)
-    .max(5)
-    .step(0.01)
-    .name('Blur Distance')
-    .onChange((value: number) => {
-      for (const shaderPass of shaderPasses) {
-        shaderPass.material.uniforms.uBlur.value = value
-      }
-    })
-  gui
-    .add(settings, 'uFraction')
-    .min(0)
-    .max(1)
-    .step(0.01)
-    .name('Noise Opacity')
-    .onChange((value: number) => {
-      for (const shaderPass of shaderPasses) {
-        shaderPass.material.uniforms.uFraction.value = value
-      }
-    })
+  const renderPass = new RenderPass(scene, camera)
+  gui.add(renderPass, 'needsSwap').name('Render Pass Swap')
+  gui.add(renderPass, 'enabled').name('Render Pass Enabled')
+  effectComposer.addPass(renderPass)
+
+  const bloomPass = new BloomPass(1, 25, 4)
+  gui.add(bloomPass, 'enabled').name('Bloom Pass Enabled')
+  gui.add(bloomPass, 'needsSwap').name('Bloom Pass Swap')
+  effectComposer.addPass(bloomPass)
 
   const sub = size$.subscribe((sizes) => {
-    for (const shaderPass of shaderPasses) {
-      shaderPass.uniforms.uResolution.value = sizes
-    }
-    renderTarget.setSize(sizes.x, sizes.y)
     effectComposer.setSize(sizes.x, sizes.y)
     effectComposer.setPixelRatio(renderer.getPixelRatio())
   })
 
   const api: ILayer = {
     update(globalSettings) {
-      // for (const shaderPass of shaderPasses) {
-      //   shaderPass.material.uniforms.uBlur.value = (1 - globalSettings.time) * 5
-      // }
       refreshMeshes(globalSettings)
 
-      const oldTarget = renderer.getRenderTarget()
-      renderer.setRenderTarget(renderTarget)
-
       effectComposer.render()
-
-      renderer.setRenderTarget(oldTarget)
     },
     destroy() {
       sub.unsubscribe()
@@ -225,7 +166,11 @@ export function renderSecondLayer({
     },
   }
 
+  // console.log('before', { ...effectComposer })
+
   api.update(initialGlobalSettings)
+
+  // console.log('after', { ...effectComposer })
 
   gui
     .add(settings, 'elementsNumber')
