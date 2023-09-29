@@ -11,14 +11,16 @@ import { FigureMesh, IGlobalSettings } from './types'
 type Material = THREE.MeshBasicMaterial
 
 interface ISecondLayerSettings {
-  uBlur: number
-  uFraction: number
   maxScale: number
   elementsNumber: number
   blurPassesNumber: number
   startColor: THREE.Color
   endColor: THREE.Color
   colorPower: number
+  blurStrength: number
+  blurKernelSize: number
+  blurSigma: number
+  blurEnabled: boolean
 }
 
 function getOpacity(progress: number) {
@@ -72,16 +74,16 @@ export function renderSecondLayer({
   settings: IGlobalSettings
 }): ILayer {
   const settings: ISecondLayerSettings = {
-    // uBlur: 4,
-    uFraction: 0.25,
-    uBlur: 2,
-    // uFraction: 1,
     elementsNumber: 64,
     blurPassesNumber: 0,
     startColor: new THREE.Color(0x00eeff),
     endColor: new THREE.Color(0x61ff4d),
     maxScale: 1.5,
     colorPower: 4,
+    blurStrength: 1,
+    blurKernelSize: 25,
+    blurSigma: 4,
+    blurEnabled: true,
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -139,8 +141,52 @@ export function renderSecondLayer({
   const renderPass = new RenderPass(scene, camera)
   effectComposer.addPass(renderPass)
 
-  const bloomPass = new BloomPass(1, 25, 4)
-  gui.add(bloomPass, 'enabled').name('Bloom Pass Enabled')
+  let bloomPass = new BloomPass(settings.blurStrength, 25, 4)
+
+  gui
+    .add(settings, 'blurEnabled')
+    .name('Blur Pass Enabled')
+    .onChange(() => {
+      bloomPass.enabled = settings.blurEnabled
+    })
+  gui
+    .add(settings, 'blurStrength')
+    .min(0)
+    .max(2)
+    .step(0.01)
+    .name('Blur Strength')
+    .onChange((value: number) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(bloomPass as any).combineUniforms.strength.value = value
+      // ;(bloomPass as any).combineUniforms.strength = value
+    })
+  gui
+    .add(settings, 'blurKernelSize')
+    .min(0)
+    .max(100)
+    .step(1)
+    .name('Blur Kernel Size')
+    .onChange(refreshBlur)
+  gui
+    .add(settings, 'blurSigma')
+    .min(0)
+    .max(10)
+    .step(0.05)
+    .name('Blur Sigma')
+    .onChange(refreshBlur)
+
+  function refreshBlur() {
+    const ind = effectComposer.passes.indexOf(bloomPass)
+    if (ind === -1) return
+    effectComposer.removePass(bloomPass)
+    bloomPass = new BloomPass(
+      settings.blurStrength,
+      settings.blurKernelSize,
+      settings.blurSigma,
+    )
+    effectComposer.insertPass(bloomPass, ind)
+  }
+
   effectComposer.addPass(bloomPass)
 
   const sub = size$.subscribe((sizes) => {
