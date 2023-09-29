@@ -152,7 +152,7 @@ export function renderSecondLayer({
   gui
     .add(settings, 'blurStrength')
     .min(0)
-    .max(2)
+    .max(10)
     .step(0.01)
     .name('Blur Strength')
     .onChange((value: number) => {
