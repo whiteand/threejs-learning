@@ -137,13 +137,10 @@ export function renderSecondLayer({
   effectComposer.swapBuffers()
 
   const renderPass = new RenderPass(scene, camera)
-  gui.add(renderPass, 'needsSwap').name('Render Pass Swap')
-  gui.add(renderPass, 'enabled').name('Render Pass Enabled')
   effectComposer.addPass(renderPass)
 
   const bloomPass = new BloomPass(1, 25, 4)
   gui.add(bloomPass, 'enabled').name('Bloom Pass Enabled')
-  gui.add(bloomPass, 'needsSwap').name('Bloom Pass Swap')
   effectComposer.addPass(bloomPass)
 
   const sub = size$.subscribe((sizes) => {
