@@ -232,6 +232,19 @@ export default function createLayeredApp(
           .subscribe(mousePosition$),
       )
 
+      fromEvent(canvas, 'dblclick').subscribe(() => {
+        if (document.fullscreenElement) {
+          document.exitFullscreen()
+        } else {
+          canvas.requestFullscreen().then(() => {
+            const rect = canvas.getBoundingClientRect()
+            const width = rect.width
+            const height = rect.height
+            size$.next(new THREE.Vector2(width, height))
+          })
+        }
+      })
+
       const clock = new THREE.Clock(true)
 
       settings.play()
