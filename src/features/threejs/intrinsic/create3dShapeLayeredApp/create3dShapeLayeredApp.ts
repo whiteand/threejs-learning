@@ -8,7 +8,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { createApp } from '~/packages/interactive-app'
 import { createComposeShader } from '~/shaders/compose/createComposeShader'
-import { createShapeCurve } from './createShapeCurve'
 import { renderMainLayer } from './renderMainLayer'
 import { renderSecondLayer } from './renderSecondLayer'
 import { FigureMesh, IGlobalSettings } from './types'
@@ -18,9 +17,9 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
     super()
   }
   getPointAt(t: number) {
-    const x = Math.sin(t * Math.PI * 2)
-    const y = Math.cos(t * Math.PI * 2)
-    const z = t * Math.sin(t * Math.PI * 2) * 0.1
+    const x = Math.sin(t * Math.PI * 2) * 2
+    const y = Math.cos(t * Math.PI * 2) * 0.1
+    const z = t * Math.sin(t * Math.PI * 2) * 2
     return new THREE.Vector3(x, y, z)
   }
   getTangentAt(
@@ -28,7 +27,7 @@ class PathCurve extends THREE.Curve<THREE.Vector3> {
     optionalTarget?: THREE.Vector3 | undefined,
   ): THREE.Vector3 {
     const x = Math.cos(t * Math.PI * 2) * Math.PI * 2
-    const y = 0
+    const y = Math.cos(t * Math.PI * 2) * 2
     const z = -Math.sin(t * Math.PI * 2) * Math.PI * 2
     return optionalTarget?.set(x, y, z) || new THREE.Vector3(x, y, z)
   }
@@ -43,8 +42,9 @@ export default function createLayeredApp(
       const tweens: gsap.core.Tween[] = []
       const settings: IGlobalSettings = {
         time: 0,
-        duration: 5,
+        duration: 10,
         bgColor: new THREE.Color(0xeaeaea),
+        yoyo: true,
         play() {
           this.stop()
           const cnt = gui.controllers.find((c) => c.property === 'time')
@@ -57,7 +57,7 @@ export default function createLayeredApp(
             {
               time: 1,
               repeat: -1,
-              yoyo: false,
+              yoyo: this.yoyo,
               duration: this.duration,
               ease: 'power2.inOut',
               onComplete: () => {
@@ -90,6 +90,7 @@ export default function createLayeredApp(
       const animationFolder = gui.addFolder('Animation')
       animationFolder.add(settings, 'play').name('Play')
       animationFolder.add(settings, 'stop').name('Stop')
+      animationFolder.add(settings, 'yoyo').name('Yoyo')
       animationFolder
         .add(settings, 'time')
         .min(0)
@@ -125,9 +126,9 @@ export default function createLayeredApp(
       )
 
       camera.position.set(
-        3.507639018776456e-7,
-        -1.5566343379644363,
-        0.0000015165998643485532,
+        -6.202498897115104,
+        -0.43234744227869787,
+        -0.07313144909595025,
       )
       camera.lookAt(new THREE.Vector3())
 
@@ -144,17 +145,13 @@ export default function createLayeredApp(
       const pathCurve = new PathCurve()
       const placeMesh = (mesh: FigureMesh, traectoryPosition: number) => {
         const curvePoint = pathCurve.getPointAt(traectoryPosition)
-        const curveTangent = pathCurve.getTangentAt(traectoryPosition)
+        // const curveTangent = pathCurve.getTangentAt(traectoryPosition)
         mesh.position.copy(curvePoint)
-        mesh.lookAt(curveTangent)
+        // mesh.lookAt(curveTangent)
+        mesh.rotation.z = (1 - traectoryPosition) * Math.PI * 2
+        mesh.rotation.y = (1 - traectoryPosition) * Math.PI * 4
       }
-      const shapeGeometry = new THREE.TubeGeometry(
-        createShapeCurve(),
-        64,
-        0.01,
-        32,
-        false,
-      )
+      const shapeGeometry = createTwoCubesGeometry()
 
       const mainLayer = renderMainLayer({
         size$,
@@ -181,6 +178,7 @@ export default function createLayeredApp(
           const material = new THREE.MeshBasicMaterial({
             color: new THREE.Color(0, 0, 0),
           })
+          material.side = THREE.DoubleSide
           // material.uniforms.uColor.value = new THREE.Color(1, 1, 1)
           // material.uniforms.uFraction.value = 1
           // material.uniforms.uScale.value = 1
@@ -276,4 +274,59 @@ export default function createLayeredApp(
       gui.destroy()
     },
   )
+}
+// function createSquareShapeGeometry(): THREE.TubeGeometry {
+//   return new THREE.TubeGeometry(createShapeCurve(), 64, 0.01, 32, false)
+// }
+function createTwoCubesGeometry() {
+  const EDGE1 = 1
+  const EDGE2 = 1.2
+  const EDGE3 = 1.8
+  const EDGE4 = 3.7
+  const EDGE4_Z = Math.cos(Math.PI / 4) * EDGE4
+  const EDGE4_Y = -Math.sin(Math.PI / 4) * EDGE4
+  const A = new THREE.Vector3(0, EDGE2, 0)
+  const B = new THREE.Vector3(EDGE1, EDGE2, 0)
+  const C = new THREE.Vector3(EDGE1, 0, 0)
+  const D = new THREE.Vector3(0, 0, 0)
+  const E = new THREE.Vector3(0, EDGE2, EDGE3)
+  const F = new THREE.Vector3(EDGE1, EDGE2, EDGE3)
+  const G = new THREE.Vector3(EDGE1, 0, EDGE3)
+  const H = new THREE.Vector3(0, 0, EDGE3)
+  const I = new THREE.Vector3(0, EDGE2 + EDGE4_Y, EDGE3 + EDGE4_Z)
+  const J = new THREE.Vector3(EDGE1, EDGE2 + EDGE4_Y, EDGE3 + EDGE4_Z)
+  const K = new THREE.Vector3(EDGE1, EDGE4_Y, EDGE3 + EDGE4_Z)
+  const L = new THREE.Vector3(0, EDGE4_Y, EDGE3 + EDGE4_Z)
+  const edges = [
+    [A, B],
+    [B, C],
+    [C, D],
+    [D, A],
+    [A, E],
+    [E, F],
+    [F, B],
+    [C, G],
+    [G, F],
+    [G, H],
+    [D, H],
+    [H, E],
+    [E, I],
+    [I, J],
+    [J, F],
+    [G, K],
+    [K, J],
+    [I, L],
+    [L, H],
+    [L, K],
+  ]
+
+  const shapeCurve = new THREE.CurvePath<THREE.Vector3>()
+
+  for (const [from, to] of edges) {
+    shapeCurve.add(new THREE.LineCurve3(from, to))
+  }
+
+  const geometry = new THREE.TubeGeometry(shapeCurve, 512, 0.02, 128)
+  geometry.center()
+  return geometry
 }
