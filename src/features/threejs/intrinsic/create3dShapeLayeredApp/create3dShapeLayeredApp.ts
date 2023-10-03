@@ -118,9 +118,9 @@ export default function createLayeredApp(
       )
 
       camera.position.set(
-        4.578737493932219,
-        -0.8940577010303337,
-        -0.4571800272249112,
+        6.322671833441198,
+        -2.525327918529742,
+        -0.5629428579015313,
       )
       camera.lookAt(new THREE.Vector3())
 

@@ -25,7 +25,7 @@ export function renderMainLayer({
 }): ILayer {
   const scene = new THREE.Scene()
 
-  scene.add(new THREE.AxesHelper(1))
+  // scene.add(new THREE.AxesHelper(1))
 
   const mainFigure = meshBuilder()
   scene.add(mainFigure)
