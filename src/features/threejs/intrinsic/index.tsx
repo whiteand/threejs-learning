@@ -3,6 +3,7 @@ import CanvasApp from '~/components/CanvasApp'
 import create3dShapeLayeredApp from './create3dShapeLayeredApp'
 import createCubesByPathAnimation from './createCubesByPathAnimation'
 import createLayeredApp from './createLayeredApp'
+import createNoiseApp from './createNoiseApp'
 import createPostProcessingAnimation from './createPostProcessingAnimation'
 import createShaderMaterialApp from './createShaderMaterialApp'
 
@@ -25,6 +26,12 @@ export const IntrinsicFeature: FeatureConstructor = (app) => {
     .setTitle('Intrinsic 3')
     .setElement(<CanvasApp createApp={createShaderMaterialApp} />)
     .showInMenu('main', 'Intrinsic 3 | Shader', 0)
+  app
+    .child()
+    .setPath('/intrinsic-3-5')
+    .setTitle('Intrinsic 3.5')
+    .setElement(<CanvasApp createApp={createNoiseApp} />)
+    .showInMenu('main', 'Intrinsic 3.5 | Noise', 0)
   app
     .child()
     .setPath('/intrinsic-4')
