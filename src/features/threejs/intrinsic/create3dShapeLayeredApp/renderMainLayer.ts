@@ -25,7 +25,7 @@ export function renderMainLayer({
 }): ILayer {
   const scene = new THREE.Scene()
 
-  // scene.add(new THREE.AxesHelper(1))
+  scene.add(new THREE.AxesHelper(1))
 
   const mainFigure = meshBuilder()
   scene.add(mainFigure)
@@ -50,6 +50,8 @@ export function renderMainLayer({
     effectComposer.setSize(sizes.x, sizes.y)
     effectComposer.setPixelRatio(Math.min(2, window.devicePixelRatio))
   })
+
+  console.log(mainFigure)
 
   const api: ILayer = {
     update(globalSettings) {

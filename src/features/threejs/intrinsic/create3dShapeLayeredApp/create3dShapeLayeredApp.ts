@@ -8,6 +8,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { createApp } from '~/packages/interactive-app'
 import { createComposeShader } from '~/shaders/compose/createComposeShader'
+import { createGeometries } from './createGeometries'
 import { renderMainLayer } from './renderMainLayer'
 import { renderSecondLayer } from './renderSecondLayer'
 import { FigureMesh, IGlobalSettings } from './types'
@@ -146,7 +147,44 @@ export default function createLayeredApp(
         // mesh.rotation.z = (1 - traectoryPosition) * Math.PI * 2
         // mesh.rotation.y = (1 - traectoryPosition) * Math.PI * 4
       }
-      const shapeGeometry = createTwoCubesGeometry()
+      const shapeGeometries = createGeometries()
+
+      const createGroup = () => {
+        const group = new THREE.Group()
+        const material = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(1, 1, 1),
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const meshes: THREE.Mesh<THREE.CapsuleGeometry, any>[] = []
+        for (const shapeGeometry of shapeGeometries) {
+          const mesh = new THREE.Mesh(shapeGeometry, material)
+          meshes.push(mesh)
+          group.add(mesh)
+        }
+
+        const min = new THREE.Vector3()
+        const max = new THREE.Vector3()
+        for (const mesh of meshes) {
+          mesh.geometry.computeBoundingBox()
+          if (mesh.geometry.boundingBox) {
+            min.min(mesh.geometry.boundingBox.min)
+            max.max(mesh.geometry.boundingBox.max)
+          }
+        }
+
+        const size = new THREE.Vector3()
+
+        size.subVectors(max, min)
+        size.multiplyScalar(0.5)
+
+        for (const mesh of meshes) {
+          mesh.position.sub(size)
+        }
+
+        group.rotation.x = Math.PI / 2
+
+        return Object.assign(group, { material })
+      }
 
       const mainLayer = renderMainLayer({
         size$,
@@ -154,13 +192,8 @@ export default function createLayeredApp(
         renderer,
         gui: gui,
         placeMesh,
-        meshBuilder: () =>
-          new THREE.Mesh(
-            shapeGeometry,
-            new THREE.MeshBasicMaterial({
-              color: new THREE.Color(1, 1, 1),
-            }),
-          ),
+        meshBuilder: createGroup,
+
         settings,
       })
 
@@ -169,16 +202,7 @@ export default function createLayeredApp(
         camera,
         renderer,
         gui: gui.addFolder('Second Layer'),
-        meshBuilder: () => {
-          const material = new THREE.MeshBasicMaterial({
-            color: new THREE.Color(0, 0, 0),
-          })
-          // material.side = THREE.DoubleSide
-          // material.uniforms.uColor.value = new THREE.Color(1, 1, 1)
-          // material.uniforms.uFraction.value = 1
-          // material.uniforms.uScale.value = 1
-          return new THREE.Mesh(shapeGeometry, material)
-        },
+        meshBuilder: createGroup,
         placeMesh,
         settings,
       })
@@ -269,59 +293,4 @@ export default function createLayeredApp(
       gui.destroy()
     },
   )
-}
-// function createSquareShapeGeometry(): THREE.TubeGeometry {
-//   return new THREE.TubeGeometry(createShapeCurve(), 64, 0.01, 32, false)
-// }
-function createTwoCubesGeometry() {
-  const EDGE1 = 1
-  const EDGE2 = 1.2
-  const EDGE3 = 1.8
-  const EDGE4 = 3.7
-  const EDGE4_Z = Math.cos(Math.PI / 4) * EDGE4
-  const EDGE4_Y = -Math.sin(Math.PI / 4) * EDGE4
-  const A = new THREE.Vector3(0, EDGE2, 0)
-  const B = new THREE.Vector3(EDGE1, EDGE2, 0)
-  const C = new THREE.Vector3(EDGE1, 0, 0)
-  const D = new THREE.Vector3(0, 0, 0)
-  const E = new THREE.Vector3(0, EDGE2, EDGE3)
-  const F = new THREE.Vector3(EDGE1, EDGE2, EDGE3)
-  const G = new THREE.Vector3(EDGE1, 0, EDGE3)
-  const H = new THREE.Vector3(0, 0, EDGE3)
-  const I = new THREE.Vector3(0, EDGE2 + EDGE4_Y, EDGE3 + EDGE4_Z)
-  const J = new THREE.Vector3(EDGE1, EDGE2 + EDGE4_Y, EDGE3 + EDGE4_Z)
-  const K = new THREE.Vector3(EDGE1, EDGE4_Y, EDGE3 + EDGE4_Z)
-  const L = new THREE.Vector3(0, EDGE4_Y, EDGE3 + EDGE4_Z)
-  const edges = [
-    [A, B],
-    [B, C],
-    [C, D],
-    [D, A],
-    [A, E],
-    [E, F],
-    [F, B],
-    [C, G],
-    [G, F],
-    [G, H],
-    [D, H],
-    [H, E],
-    [E, I],
-    [I, J],
-    [J, F],
-    [G, K],
-    [K, J],
-    [I, L],
-    [L, H],
-    [L, K],
-  ]
-
-  const shapeCurve = new THREE.CurvePath<THREE.Vector3>()
-
-  for (const [from, to] of edges) {
-    shapeCurve.add(new THREE.LineCurve3(from, to))
-  }
-
-  const geometry = new THREE.TubeGeometry(shapeCurve, 128, 0.02, 32)
-  geometry.center()
-  return geometry
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import GUI from 'lil-gui'
 import { BehaviorSubject } from 'rxjs'
 import * as THREE from 'three'
@@ -11,8 +12,6 @@ import { ILayer } from './ILayer'
 import { getItemRatio } from './getItemRatio'
 import { createNoiseShader } from './noiseShader'
 import { FigureMesh, IGlobalSettings } from './types'
-
-type Material = THREE.MeshBasicMaterial
 
 function getSizeValue(noiseType: 'random' | 'smooth', noiseSize: number) {
   if (noiseType === 'random') {
@@ -76,7 +75,7 @@ function updateMesh(
   globalSettings: IGlobalSettings,
   settings: ISecondLayerSettings,
   index: number,
-  mesh: FigureMesh<Material>,
+  mesh: FigureMesh,
 ): void {
   const { time } = globalSettings
   const { elementsNumber, maxScale } = settings
@@ -110,8 +109,8 @@ export function renderSecondLayer({
   camera: THREE.Camera
   renderer: THREE.WebGLRenderer
   gui: GUI
-  meshBuilder: () => FigureMesh<Material>
-  placeMesh: (mesh: FigureMesh<Material>, traectoryPosition: number) => void
+  meshBuilder: () => FigureMesh
+  placeMesh: (mesh: FigureMesh, traectoryPosition: number) => void
   settings: IGlobalSettings
 }): ILayer {
   const settings: ISecondLayerSettings = {
@@ -142,27 +141,30 @@ export function renderSecondLayer({
 
   const scene = new THREE.Scene()
 
-  const meshes: FigureMesh<Material>[] = []
+  const figures: FigureMesh[] = []
 
   const refreshMeshes = (globalSettings: IGlobalSettings) => {
-    if (meshes.length !== settings.elementsNumber) {
-      for (const mesh of meshes) {
-        scene.remove(mesh)
-        mesh.geometry.dispose()
-        mesh.material.dispose()
+    if (figures.length !== settings.elementsNumber) {
+      for (const figure of figures) {
+        scene.remove(figure)
+        for (const item of figure.children) {
+          ;(item as THREE.Mesh<any, any>).geometry
+            .dispose()(item as THREE.Mesh<any, any>)
+            .material.dispose()
+        }
       }
-      meshes.splice(0, meshes.length)
+      figures.splice(0, figures.length)
       for (let i = 0; i < settings.elementsNumber; i++) {
         const mesh = meshBuilder()
         mesh.material.transparent = true
         const meshRatio = getItemRatio(settings.elementsNumber, i)
         placeMesh(mesh, meshRatio)
-        meshes.push(mesh)
+        figures.push(mesh)
         scene.add(mesh)
       }
     }
     for (let i = 0; i < settings.elementsNumber; i++) {
-      const mesh = meshes[i]
+      const mesh = figures[i]
       updateMesh(scene, globalSettings, settings, i, mesh)
     }
     noiseShaderPass.uniforms.uTime.value = settings.noiseTimeBased
