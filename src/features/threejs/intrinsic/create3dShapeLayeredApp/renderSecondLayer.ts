@@ -114,7 +114,7 @@ export function renderSecondLayer({
   settings: IGlobalSettings
 }): ILayer {
   const settings: ISecondLayerSettings = {
-    elementsNumber: 64,
+    elementsNumber: 96,
     startColor: new THREE.Color(0x0011ff),
     middleColor: new THREE.Color(0xff0000),
     endColor: new THREE.Color(0x0011ff),
@@ -148,9 +148,16 @@ export function renderSecondLayer({
       for (const figure of figures) {
         scene.remove(figure)
         for (const item of figure.children) {
-          ;(item as THREE.Mesh<any, any>).geometry
-            .dispose()(item as THREE.Mesh<any, any>)
-            .material.dispose()
+          if ('geometry' in item) {
+            if (
+              item.geometry != null &&
+              typeof item.geometry === 'object' &&
+              'dispose' in item.geometry &&
+              typeof item.geometry.dispose === 'function'
+            ) {
+              item.geometry.dispose()
+            }
+          }
         }
       }
       figures.splice(0, figures.length)
