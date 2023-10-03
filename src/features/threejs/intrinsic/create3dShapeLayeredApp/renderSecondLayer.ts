@@ -297,6 +297,7 @@ export function renderSecondLayer({
     for (const pass of effectComposer.passes) {
       pass.setSize(sizes.x, sizes.y)
     }
+    renderTarget.setSize(sizes.x, sizes.y)
     sobelOperatorPass.material.uniforms.resolution.value.set(sizes.x, sizes.y)
     effectComposer.setSize(sizes.x, sizes.y)
     effectComposer.setPixelRatio(renderer.getPixelRatio())
