@@ -34,6 +34,7 @@ interface ISecondLayerSettings {
   blurEnabled: boolean
   noiseSize: number
   noiseType: 'random' | 'smooth'
+  noiseTimeBased: boolean
   gradientType: 'rgb' | 'hsl'
 }
 
@@ -127,6 +128,7 @@ export function renderSecondLayer({
     noiseSize: 1.5,
     gradientType: 'hsl',
     noiseType: 'random',
+    noiseTimeBased: false,
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -161,7 +163,9 @@ export function renderSecondLayer({
       const mesh = meshes[i]
       updateMesh(scene, globalSettings, settings, i, mesh)
     }
-    noiseShaderPass.uniforms.uTime.value = globalSettings.time
+    noiseShaderPass.uniforms.uTime.value = settings.noiseTimeBased
+      ? globalSettings.time
+      : 1
   }
 
   const renderTarget = new THREE.WebGLRenderTarget(
@@ -279,6 +283,8 @@ export function renderSecondLayer({
         noiseSizeController.hide()
       }
     })
+
+  noiseFolder.add(settings, 'noiseTimeBased').name('Time Based Noise')
   const noiseSizeController = noiseFolder
     .add(settings, 'noiseSize')
     .min(1)

@@ -13,7 +13,7 @@ export function createNoiseShader(): THREE.ShaderMaterialParameters & {
     uniforms: {
       tDiffuse: { value: null },
       uSize: { value: 125 },
-      uTime: { value: 0 },
+      uTime: { value: 1 },
     },
     vertexShader: noiseVertexShader,
     fragmentShader: noiseFragmentShader,
