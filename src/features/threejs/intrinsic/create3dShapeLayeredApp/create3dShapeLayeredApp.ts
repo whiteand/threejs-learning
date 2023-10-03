@@ -12,26 +12,17 @@ import { renderMainLayer } from './renderMainLayer'
 import { renderSecondLayer } from './renderSecondLayer'
 import { FigureMesh, IGlobalSettings } from './types'
 
-class PathCurve extends THREE.Curve<THREE.Vector3> {
-  constructor() {
-    super()
-  }
-  getPointAt(t: number) {
-    const x = Math.sin(t * Math.PI * 2) * 2
-    const y = Math.cos(t * Math.PI * 2) * 0.1
-    const z = t * Math.sin(t * Math.PI * 2) * 2
-    return new THREE.Vector3(x, y, z)
-  }
-  getTangentAt(
-    t: number,
-    optionalTarget?: THREE.Vector3 | undefined,
-  ): THREE.Vector3 {
-    const x = Math.cos(t * Math.PI * 2) * Math.PI * 2
-    const y = Math.cos(t * Math.PI * 2) * 2
-    const z = -Math.sin(t * Math.PI * 2) * Math.PI * 2
-    return optionalTarget?.set(x, y, z) || new THREE.Vector3(x, y, z)
-  }
-}
+// class PathCurve extends THREE.Curve<THREE.Vector3> {
+//   constructor() {
+//     super()
+//   }
+//   getPoint(t: number) {
+//     const x = Math.sin(t * Math.PI * 2) * 2
+//     const y = Math.cos(t * Math.PI * 2) * 0.1
+//     const z = t * Math.sin(t * Math.PI * 2) * 2
+//     return new THREE.Vector3(x, y, z)
+//   }
+// }
 
 export default function createLayeredApp(
   canvas: HTMLCanvasElement,
@@ -44,7 +35,7 @@ export default function createLayeredApp(
         time: 0,
         duration: 10,
         bgColor: new THREE.Color(0xeaeaea),
-        yoyo: true,
+        yoyo: false,
         play() {
           this.stop()
           const cnt = gui.controllers.find((c) => c.property === 'time')
@@ -59,7 +50,7 @@ export default function createLayeredApp(
               repeat: -1,
               yoyo: this.yoyo,
               duration: this.duration,
-              ease: 'power2.inOut',
+              ease: 'linear',
               onComplete: () => {
                 const ind = tweens.indexOf(tween)
                 if (ind >= 0) {
@@ -126,9 +117,9 @@ export default function createLayeredApp(
       )
 
       camera.position.set(
-        -6.202498897115104,
-        -0.43234744227869787,
-        -0.07313144909595025,
+        4.578737493932219,
+        -0.8940577010303337,
+        -0.4571800272249112,
       )
       camera.lookAt(new THREE.Vector3())
 
@@ -142,14 +133,18 @@ export default function createLayeredApp(
       renderer.setSize(size$.getValue().x, size$.getValue().y)
       refreshBgColor()
 
-      const pathCurve = new PathCurve()
+      const pathCurve = new THREE.EllipseCurve(1, 1, 1, 1, 0, Math.PI * 2, true)
       const placeMesh = (mesh: FigureMesh, traectoryPosition: number) => {
-        const curvePoint = pathCurve.getPointAt(traectoryPosition)
-        // const curveTangent = pathCurve.getTangentAt(traectoryPosition)
-        mesh.position.copy(curvePoint)
-        // mesh.lookAt(curveTangent)
-        mesh.rotation.z = (1 - traectoryPosition) * Math.PI * 2
-        mesh.rotation.y = (1 - traectoryPosition) * Math.PI * 4
+        const curvePoint = pathCurve
+          .getPointAt(traectoryPosition)
+          .multiplyScalar(0.1)
+        const curveTangent = pathCurve.getTangentAt(traectoryPosition)
+        mesh.position.set(curvePoint.x, 0, curvePoint.y)
+        mesh.position.y += Math.sin(traectoryPosition * Math.PI * 2) * 1
+        mesh.lookAt(curveTangent.x, 0, curveTangent.y)
+
+        // mesh.rotation.z = (1 - traectoryPosition) * Math.PI * 2
+        // mesh.rotation.y = (1 - traectoryPosition) * Math.PI * 4
       }
       const shapeGeometry = createTwoCubesGeometry()
 

@@ -71,6 +71,7 @@ function getColor(
 }
 
 function updateMesh(
+  scene: THREE.Scene,
   globalSettings: IGlobalSettings,
   settings: ISecondLayerSettings,
   index: number,
@@ -81,7 +82,10 @@ function updateMesh(
   const meshRatio = getItemRatio(elementsNumber, index)
   if (time >= meshRatio) {
     mesh.material.opacity = 0
+    scene.remove(mesh)
     return
+  } else {
+    scene.add(mesh)
   }
   const progress = 1 - (meshRatio - time) / meshRatio
 
@@ -113,12 +117,12 @@ export function renderSecondLayer({
     elementsNumber: 64,
     startColor: new THREE.Color(0x0011ff),
     middleColor: new THREE.Color(0xff0000),
-    endColor: new THREE.Color(0x73ff00),
-    maxScale: 1.5,
+    endColor: new THREE.Color(0x0011ff),
+    maxScale: 0,
     colorPower: 4,
-    blurStrength: 1.25,
-    blurKernelSize: 12,
-    blurSigma: 4,
+    blurStrength: 1,
+    blurKernelSize: 16,
+    blurSigma: 2,
     blurEnabled: true,
     noiseSize: 1.5,
     gradientType: 'hsl',
@@ -155,7 +159,7 @@ export function renderSecondLayer({
     }
     for (let i = 0; i < settings.elementsNumber; i++) {
       const mesh = meshes[i]
-      updateMesh(globalSettings, settings, i, mesh)
+      updateMesh(scene, globalSettings, settings, i, mesh)
     }
     noiseShaderPass.uniforms.uTime.value = globalSettings.time
   }
@@ -173,7 +177,7 @@ export function renderSecondLayer({
 
   gui
     .add(settings, 'maxScale')
-    .min(1)
+    .min(0)
     .max(10)
     .step(0.01)
     .name('Max Scale')
@@ -186,6 +190,7 @@ export function renderSecondLayer({
   effectComposer.addPass(renderPass)
 
   let bloomPass = new BloomPass(settings.blurStrength, 25, 4)
+  bloomPass.enabled = true
 
   gui
     .add(settings, 'blurEnabled')
@@ -213,9 +218,9 @@ export function renderSecondLayer({
     .onChange(refreshBlur)
   gui
     .add(settings, 'blurSigma')
-    .min(0)
-    .max(10)
-    .step(0.05)
+    .min(0.01)
+    .max(5)
+    .step(0.01)
     .name('Blur Sigma')
     .onChange(refreshBlur)
 
@@ -233,6 +238,8 @@ export function renderSecondLayer({
 
   effectComposer.addPass(bloomPass)
 
+  refreshBlur()
+
   const specialEffectsGui = gui.addFolder('Special Effects')
 
   const noiseShaderPass = new ShaderPass(createNoiseShader()) as ShaderPass & {
@@ -240,11 +247,10 @@ export function renderSecondLayer({
   }
 
   noiseShaderPass.enabled = true
-  specialEffectsGui.add(noiseShaderPass, 'enabled').name('Noise Enabled')
 
   specialEffectsGui
     .add(noiseShaderPass, 'enabled')
-    .name('Dot Screen Enabled')
+    .name('Noise Enabled')
     .onChange((enabled: boolean) => {
       if (enabled) {
         noiseFolder.show()
@@ -318,8 +324,6 @@ export function renderSecondLayer({
     },
   }
 
-  // console.log('before', { ...effectComposer })
-
   api.update(initialGlobalSettings)
 
   // console.log('after', { ...effectComposer })
@@ -327,7 +331,7 @@ export function renderSecondLayer({
   gui
     .add(settings, 'elementsNumber')
     .min(0)
-    .max(100)
+    .max(200)
     .step(1)
     .name('Elements')
     .onChange(() => refreshMeshes(initialGlobalSettings))
