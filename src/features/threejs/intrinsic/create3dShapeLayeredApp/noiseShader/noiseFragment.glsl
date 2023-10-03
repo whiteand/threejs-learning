@@ -1,6 +1,7 @@
 uniform sampler2D tDiffuse;
 uniform float uSize;
 uniform float uTime;
+uniform bool uSized;
 varying vec2 vUv;
 
 
@@ -83,7 +84,11 @@ float noise(in vec2 st) {
 
 void main() {
     vec4 color = texture2D(tDiffuse, vUv);
-    float r = random(vUv * uSize + vec2(uTime * 2.));
-    
-    gl_FragColor = r > .5 ? color : vec4(0.);
+    if (uSize <= 0.0) {
+        float r = random(vUv * uTime);
+        gl_FragColor = r > .5 ? color : vec4(0.0);
+    } else {
+        float r = noise(vUv * uSize);
+        gl_FragColor = r * color;
+    }
 }

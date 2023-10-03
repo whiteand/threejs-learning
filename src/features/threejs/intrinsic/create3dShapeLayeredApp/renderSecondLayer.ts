@@ -14,6 +14,13 @@ import { FigureMesh, IGlobalSettings } from './types'
 
 type Material = THREE.MeshBasicMaterial
 
+function getSizeValue(noiseType: 'random' | 'smooth', noiseSize: number) {
+  if (noiseType === 'random') {
+    return 0
+  }
+  return 1024 / noiseSize ** 2
+}
+
 interface ISecondLayerSettings {
   maxScale: number
   elementsNumber: number
@@ -26,6 +33,7 @@ interface ISecondLayerSettings {
   blurSigma: number
   blurEnabled: boolean
   noiseSize: number
+  noiseType: 'random' | 'smooth'
   gradientType: 'rgb' | 'hsl'
 }
 
@@ -114,6 +122,7 @@ export function renderSecondLayer({
     blurEnabled: true,
     noiseSize: 1.5,
     gradientType: 'hsl',
+    noiseType: 'random',
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -232,6 +241,48 @@ export function renderSecondLayer({
 
   noiseShaderPass.enabled = true
   specialEffectsGui.add(noiseShaderPass, 'enabled').name('Noise Enabled')
+
+  specialEffectsGui
+    .add(noiseShaderPass, 'enabled')
+    .name('Dot Screen Enabled')
+    .onChange((enabled: boolean) => {
+      if (enabled) {
+        noiseFolder.show()
+      } else {
+        noiseFolder.hide()
+      }
+    })
+  const noiseFolder = specialEffectsGui.addFolder('Noise')
+  // noiseFolder.hide()
+
+  noiseShaderPass.uniforms.uSize.value = getSizeValue(
+    settings.noiseType,
+    settings.noiseSize,
+  )
+
+  noiseFolder
+    .add(settings, 'noiseType')
+    .options(['random', 'smooth'])
+    .name('Noise Type')
+    .onChange(() => {
+      const res = getSizeValue(settings.noiseType, settings.noiseSize)
+      noiseShaderPass.uniforms.uSize.value = res
+      if (settings.noiseType === 'smooth') {
+        noiseSizeController.show()
+      } else {
+        noiseSizeController.hide()
+      }
+    })
+  const noiseSizeController = noiseFolder
+    .add(settings, 'noiseSize')
+    .min(1)
+    .max(10)
+    .step(0.01)
+    .name('Noise Size')
+    .onChange(() => {
+      const res = getSizeValue(settings.noiseType, settings.noiseSize)
+      noiseShaderPass.uniforms.uSize.value = res
+    })
 
   effectComposer.addPass(noiseShaderPass)
 
