@@ -148,6 +148,7 @@ export function renderSecondLayer({
     if (meshes.length !== settings.elementsNumber) {
       for (const mesh of meshes) {
         scene.remove(mesh)
+        mesh.geometry.dispose()
       }
       meshes.splice(0, meshes.length)
       for (let i = 0; i < settings.elementsNumber; i++) {

@@ -173,7 +173,7 @@ export default function createLayeredApp(
           const material = new THREE.MeshBasicMaterial({
             color: new THREE.Color(0, 0, 0),
           })
-          material.side = THREE.DoubleSide
+          // material.side = THREE.DoubleSide
           // material.uniforms.uColor.value = new THREE.Color(1, 1, 1)
           // material.uniforms.uFraction.value = 1
           // material.uniforms.uScale.value = 1
