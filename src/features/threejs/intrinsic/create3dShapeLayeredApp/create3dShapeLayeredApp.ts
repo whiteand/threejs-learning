@@ -321,7 +321,7 @@ function createTwoCubesGeometry() {
     shapeCurve.add(new THREE.LineCurve3(from, to))
   }
 
-  const geometry = new THREE.TubeGeometry(shapeCurve, 512, 0.02, 128)
+  const geometry = new THREE.TubeGeometry(shapeCurve, 128, 0.02, 32)
   geometry.center()
   return geometry
 }
