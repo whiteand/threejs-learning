@@ -11,7 +11,7 @@ import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorSha
 import { ILayer } from './ILayer'
 import { getItemRatio } from './getItemRatio'
 import { createNoiseShader } from './noiseShader'
-import { FigureMesh, IGlobalSettings } from './types'
+import { IGlobalSettings } from './types'
 
 function getSizeValue(noiseType: 'random' | 'smooth', noiseSize: number) {
   if (noiseType === 'random') {
@@ -70,18 +70,24 @@ function getColor(
   return res
 }
 
-function updateMesh(
+function updateMesh<F extends THREE.Object3D>(
   scene: THREE.Scene,
+  updateMaterial: (
+    mesh: F,
+    cb: (material: THREE.MeshBasicMaterial) => void,
+  ) => void,
   globalSettings: IGlobalSettings,
   settings: ISecondLayerSettings,
   index: number,
-  mesh: FigureMesh,
+  mesh: F,
 ): void {
   const { time } = globalSettings
   const { elementsNumber, maxScale } = settings
   const meshRatio = getItemRatio(elementsNumber, index)
   if (time >= meshRatio) {
-    mesh.material.opacity = 0
+    updateMaterial(mesh, (material) => {
+      material.opacity = 0
+    })
     scene.remove(mesh)
     return
   } else {
@@ -91,15 +97,18 @@ function updateMesh(
 
   const scale = 1 + (1 - progress) * maxScale
   mesh.scale.set(scale, scale, scale)
-  mesh.material.opacity = getOpacity(progress)
-  mesh.material.color = getColor(settings, progress, meshRatio)
+  updateMaterial(mesh, (material) => {
+    material.opacity = getOpacity(progress)
+    material.color = getColor(settings, progress, meshRatio)
+  })
 }
 
-export function renderSecondLayer({
+export function renderSecondLayer<F extends THREE.Object3D>({
   size$,
   camera,
   // renderer,
   gui,
+  updateMaterial,
   meshBuilder,
   placeMesh,
   settings: initialGlobalSettings,
@@ -109,12 +118,16 @@ export function renderSecondLayer({
   camera: THREE.Camera
   renderer: THREE.WebGLRenderer
   gui: GUI
-  meshBuilder: () => FigureMesh
-  placeMesh: (mesh: FigureMesh, traectoryPosition: number) => void
+  meshBuilder: () => F
+  placeMesh: (mesh: F, traectoryPosition: number) => void
+  updateMaterial: (
+    mesh: F,
+    cb: (material: THREE.MeshBasicMaterial) => void,
+  ) => void
   settings: IGlobalSettings
 }): ILayer {
   const settings: ISecondLayerSettings = {
-    elementsNumber: 96,
+    elementsNumber: initialGlobalSettings.defaultElementsNumber,
     startColor: new THREE.Color(0x0011ff),
     middleColor: new THREE.Color(0xff0000),
     endColor: new THREE.Color(0x0011ff),
@@ -141,7 +154,7 @@ export function renderSecondLayer({
 
   const scene = new THREE.Scene()
 
-  const figures: FigureMesh[] = []
+  const figures: F[] = []
 
   const refreshMeshes = (globalSettings: IGlobalSettings) => {
     if (figures.length !== settings.elementsNumber) {
@@ -163,7 +176,9 @@ export function renderSecondLayer({
       figures.splice(0, figures.length)
       for (let i = 0; i < settings.elementsNumber; i++) {
         const mesh = meshBuilder()
-        mesh.material.transparent = true
+        updateMaterial(mesh, (material) => {
+          material.transparent = true
+        })
         const meshRatio = getItemRatio(settings.elementsNumber, i)
         placeMesh(mesh, meshRatio)
         figures.push(mesh)
@@ -172,7 +187,7 @@ export function renderSecondLayer({
     }
     for (let i = 0; i < settings.elementsNumber; i++) {
       const mesh = figures[i]
-      updateMesh(scene, globalSettings, settings, i, mesh)
+      updateMesh(scene, updateMaterial, globalSettings, settings, i, mesh)
     }
     noiseShaderPass.uniforms.uTime.value = settings.noiseTimeBased
       ? globalSettings.time
@@ -335,6 +350,7 @@ export function renderSecondLayer({
     destroy() {
       sub.unsubscribe()
       renderTarget.dispose()
+      gui.destroy()
     },
     getTexture() {
       return renderTarget.texture

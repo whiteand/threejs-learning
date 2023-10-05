@@ -5,7 +5,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { SavePass } from 'three/examples/jsm/postprocessing/SavePass.js'
 import { ILayer } from './ILayer'
-import { FigureMesh, IGlobalSettings } from './types'
+import { IGlobalSettings } from './types'
 
 export function renderMainLayer({
   size$,
@@ -18,14 +18,14 @@ export function renderMainLayer({
   size$: BehaviorSubject<THREE.Vector2>
   camera: THREE.Camera
   renderer: THREE.WebGLRenderer
-  meshBuilder: () => FigureMesh
-  placeMesh: (mesh: FigureMesh, traectoryPosition: number) => void
+  meshBuilder: () => THREE.Object3D
+  placeMesh: (mesh: THREE.Object3D, traectoryPosition: number) => void
   gui: GUI
   settings: IGlobalSettings
 }): ILayer {
   const scene = new THREE.Scene()
 
-  // scene.add(new THREE.AxesHelper(1))
+  scene.add(new THREE.AxesHelper(1))
 
   const mainFigure = meshBuilder()
   scene.add(mainFigure)
@@ -50,8 +50,6 @@ export function renderMainLayer({
     effectComposer.setSize(sizes.x, sizes.y)
     effectComposer.setPixelRatio(Math.min(2, window.devicePixelRatio))
   })
-
-  console.log(mainFigure)
 
   const api: ILayer = {
     update(globalSettings) {

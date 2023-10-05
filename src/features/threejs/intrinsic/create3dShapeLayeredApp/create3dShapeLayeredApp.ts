@@ -4,6 +4,7 @@ import GUI from 'lil-gui'
 import { BehaviorSubject, fromEvent, map } from 'rxjs'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { createApp } from '~/packages/interactive-app'
@@ -11,7 +12,7 @@ import { createComposeShader } from '~/shaders/compose/createComposeShader'
 import { createGeometries } from './createGeometries'
 import { renderMainLayer } from './renderMainLayer'
 import { renderSecondLayer } from './renderSecondLayer'
-import { FigureMesh, IGlobalSettings } from './types'
+import { IGlobalSettings } from './types'
 
 // class PathCurve extends THREE.Curve<THREE.Vector3> {
 //   constructor() {
@@ -37,6 +38,9 @@ export default function createLayeredApp(
         duration: 10,
         bgColor: new THREE.Color(0xeaeaea),
         yoyo: false,
+        defaultElementsNumber: 96,
+        modelUrl:
+          'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf',
         play() {
           this.stop()
           const cnt = gui.controllers.find((c) => c.property === 'time')
@@ -74,10 +78,64 @@ export default function createLayeredApp(
           tweens.forEach((tween) => tween.kill())
           tweens.splice(0, tweens.length)
         },
+        loadModel: () =>
+          loadModel().catch((error) => {
+            alert(error.message)
+          }),
+        model: null,
       }
 
       const gui = new GUI()
+
       gui.close()
+
+      const modelFolder = gui.addFolder('Model')
+      modelFolder.add(settings, 'modelUrl').name('Model URL (GLTF)')
+      modelFolder.add(settings, 'loadModel').name('Load Model')
+      const gltfLoader = new GLTFLoader()
+
+      async function loadModel() {
+        const newModel = await gltfLoader.loadAsync(settings.modelUrl)
+        settings.model = newModel
+        restartApp()
+      }
+
+      function restartApp() {
+        mainLayer.destroy()
+        secondLayer.destroy()
+
+        // settings.defaultElementsNumber = 96
+
+        mainLayer = renderMainLayer({
+          size$,
+          camera,
+          renderer,
+          gui: gui,
+          placeMesh,
+          meshBuilder: createGroup,
+          settings,
+        })
+
+        secondLayer = renderSecondLayer({
+          size$,
+          camera,
+          renderer,
+          updateMaterial: (group, cb) => {
+            updateMaterial(group, (obj) => {
+              cb(obj.material)
+            })
+          },
+          gui: gui.addFolder('Second Layer'),
+          meshBuilder: createGroup,
+          placeMesh,
+          settings,
+        })
+
+        composerShaderPass.material.uniforms.uMainTexture.value =
+          mainLayer.getTexture()
+        composerShaderPass.material.uniforms.uSecondaryTexture.value =
+          secondLayer.getTexture()
+      }
 
       const animationFolder = gui.addFolder('Animation')
       animationFolder.add(settings, 'play').name('Play')
@@ -135,21 +193,32 @@ export default function createLayeredApp(
       refreshBgColor()
 
       const pathCurve = new THREE.EllipseCurve(1, 1, 1, 1, 0, Math.PI * 2, true)
-      const placeMesh = (mesh: FigureMesh, traectoryPosition: number) => {
+      const placeMesh = (mesh: THREE.Object3D, traectoryPosition: number) => {
         const curvePoint = pathCurve
           .getPointAt(traectoryPosition)
           .multiplyScalar(0.1)
         const curveTangent = pathCurve.getTangentAt(traectoryPosition)
         mesh.position.set(curvePoint.x, 0, curvePoint.y)
         mesh.position.y += Math.sin(traectoryPosition * Math.PI * 2) * 1
-        mesh.lookAt(curveTangent.x, 0, curveTangent.y)
-
-        // mesh.rotation.z = (1 - traectoryPosition) * Math.PI * 2
-        // mesh.rotation.y = (1 - traectoryPosition) * Math.PI * 4
+        mesh.rotation.x = curveTangent.x
+        mesh.rotation.z = curveTangent.y
+        // mesh.lookAt(curveTangent.x, 0, curveTangent.y)
       }
       const shapeGeometries = createGeometries()
 
-      const createGroup = () => {
+      const createGroup = (): THREE.Group => {
+        if (settings.model && settings.modelUrl) {
+          const res = settings.model.scene.clone()
+
+          updateMaterial(res, (obj) => {
+            obj.material.dispose()
+            obj.material = new THREE.MeshBasicMaterial({
+              color: new THREE.Color(1, 1, 1),
+            })
+          })
+
+          return res
+        }
         const group = new THREE.Group()
         const material = new THREE.MeshBasicMaterial({
           color: new THREE.Color(1, 1, 1),
@@ -186,19 +255,47 @@ export default function createLayeredApp(
         return Object.assign(group, { material })
       }
 
-      const mainLayer = renderMainLayer({
+      const updateMaterial = (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        group: any,
+        cb: (obj: { material: THREE.MeshBasicMaterial }) => void,
+      ) => {
+        const toCheck = [group]
+
+        while (toCheck.length > 0) {
+          const current = toCheck.pop()
+          if (!current) continue
+          if (
+            current.isMesh &&
+            (current.material instanceof THREE.MeshStandardMaterial ||
+              current.material instanceof THREE.MeshBasicMaterial)
+          ) {
+            cb(current)
+          } else if (current.children) {
+            for (const child of current.children) {
+              toCheck.push(child)
+            }
+          }
+        }
+      }
+
+      let mainLayer = renderMainLayer({
         size$,
         camera,
         renderer,
         gui: gui,
         placeMesh,
         meshBuilder: createGroup,
-
         settings,
       })
 
-      const secondLayer = renderSecondLayer({
+      let secondLayer = renderSecondLayer({
         size$,
+        updateMaterial: (group, cb) => {
+          updateMaterial(group, (obj) => {
+            cb(obj.material)
+          })
+        },
         camera,
         renderer,
         gui: gui.addFolder('Second Layer'),
@@ -264,22 +361,26 @@ export default function createLayeredApp(
       settings.play()
       // document.body.style.backgroundColor = settings.bgColor.getStyle()
 
+      function onFrame() {
+        mainLayer.update(settings)
+        secondLayer.update(settings)
+      }
+
       return {
         effectComposer,
         controls,
         subscription,
         mousePosition$,
         clock,
+        onFrame,
         mainLayer,
         secondLayer,
         settings,
         gui,
       }
     },
-    ({ effectComposer, settings, mainLayer, secondLayer, controls }) => {
-      mainLayer.update(settings)
-      secondLayer.update(settings)
-
+    ({ effectComposer, onFrame, controls }) => {
+      onFrame()
       controls.update()
 
       effectComposer.render()
