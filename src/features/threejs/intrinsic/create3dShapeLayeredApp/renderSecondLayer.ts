@@ -219,16 +219,23 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   const renderPass = new RenderPass(scene, camera)
   effectComposer.addPass(renderPass)
 
+  const specialEffectsGui = gui.addFolder('Special Effects')
+
+  const sobelOperatorPass = new ShaderPass(SobelOperatorShader)
+  sobelOperatorPass.enabled = false
+  specialEffectsGui.add(sobelOperatorPass, 'enabled').name('Sobel Pass Enabled')
+  effectComposer.addPass(sobelOperatorPass)
+
   let bloomPass = new BloomPass(settings.blurStrength, 25, 4)
   bloomPass.enabled = true
 
-  gui
+  specialEffectsGui
     .add(settings, 'blurEnabled')
     .name('Blur Pass Enabled')
     .onChange(() => {
       bloomPass.enabled = settings.blurEnabled
     })
-  gui
+  specialEffectsGui
     .add(settings, 'blurStrength')
     .min(0)
     .max(10)
@@ -239,14 +246,14 @@ export function renderSecondLayer<F extends THREE.Object3D>({
       ;(bloomPass as any).combineUniforms.strength.value = value
       // ;(bloomPass as any).combineUniforms.strength = value
     })
-  gui
+  specialEffectsGui
     .add(settings, 'blurKernelSize')
     .min(0)
     .max(100)
     .step(1)
     .name('Blur Kernel Size')
     .onChange(refreshBlur)
-  gui
+  specialEffectsGui
     .add(settings, 'blurSigma')
     .min(0.01)
     .max(5)
@@ -269,8 +276,6 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   effectComposer.addPass(bloomPass)
 
   refreshBlur()
-
-  const specialEffectsGui = gui.addFolder('Special Effects')
 
   const noiseShaderPass = new ShaderPass(createNoiseShader()) as ShaderPass & {
     uniforms: ReturnType<typeof createNoiseShader>['uniforms']
@@ -323,11 +328,6 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     })
 
   effectComposer.addPass(noiseShaderPass)
-
-  const sobelOperatorPass = new ShaderPass(SobelOperatorShader)
-  sobelOperatorPass.enabled = false
-  specialEffectsGui.add(sobelOperatorPass, 'enabled').name('Sobel Pass Enabled')
-  effectComposer.addPass(sobelOperatorPass)
 
   effectComposer.addPass(new SavePass(renderTarget))
 
