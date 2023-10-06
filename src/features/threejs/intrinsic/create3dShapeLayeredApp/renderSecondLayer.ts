@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { SavePass } from 'three/examples/jsm/postprocessing/SavePass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorShader.js'
 import { ILayer } from './ILayer'
 import { getItemRatio } from './getItemRatio'
@@ -35,6 +36,9 @@ interface ISecondLayerSettings {
   noiseType: 'random' | 'smooth'
   noiseTimeBased: boolean
   gradientType: 'rgb' | 'hsl'
+  unrealBloomPassStrength: number
+  unrealBloomPassRadius: number
+  unrealBloomPassThreshold: number
 }
 
 function getOpacity(progress: number) {
@@ -141,6 +145,9 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     gradientType: 'hsl',
     noiseType: 'random',
     noiseTimeBased: false,
+    unrealBloomPassThreshold: 0.2,
+    unrealBloomPassStrength: 0.6,
+    unrealBloomPassRadius: 0.05,
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -226,6 +233,62 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   specialEffectsGui.add(sobelOperatorPass, 'enabled').name('Sobel Pass Enabled')
   effectComposer.addPass(sobelOperatorPass)
 
+  const unrealBloomPass = new UnrealBloomPass(
+    size$.getValue(),
+    settings.unrealBloomPassStrength,
+    settings.unrealBloomPassRadius,
+    settings.unrealBloomPassThreshold,
+  )
+
+  unrealBloomPass.enabled = false
+
+  specialEffectsGui
+    .add(unrealBloomPass, 'enabled')
+    .name('Unreal Bloom Enabled')
+    .onChange((enabled: boolean) => {
+      if (enabled) {
+        unrealBloomFolder.show()
+      } else {
+        unrealBloomFolder.hide()
+      }
+    })
+
+  const unrealBloomFolder = specialEffectsGui.addFolder('Unreal Bloom')
+
+  unrealBloomFolder.hide()
+
+  unrealBloomFolder
+    .add(settings, 'unrealBloomPassStrength')
+    .name('Strength')
+    .min(0)
+    .max(3)
+    .step(0.01)
+    .onChange(function (value: number) {
+      unrealBloomPass.strength = Number(value)
+    })
+
+  unrealBloomFolder
+    .add(settings, 'unrealBloomPassRadius')
+    .name('Radius')
+    .min(0)
+    .max(1)
+    .step(0.01)
+    .onChange(function (value: number) {
+      unrealBloomPass.radius = Number(value)
+    })
+
+  unrealBloomFolder
+    .add(settings, 'unrealBloomPassThreshold')
+    .name('Threshold')
+    .min(0)
+    .max(1)
+    .step(0.01)
+    .onChange(function (value: number) {
+      unrealBloomPass.threshold = Number(value)
+    })
+
+  effectComposer.addPass(unrealBloomPass)
+
   let bloomPass = new BloomPass(settings.blurStrength, 25, 4)
   bloomPass.enabled = true
 
@@ -233,32 +296,40 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     .add(settings, 'blurEnabled')
     .name('Blur Pass Enabled')
     .onChange(() => {
+      if (settings.blurEnabled) {
+        bloomPassFolder.show()
+      } else {
+        bloomPassFolder.hide()
+      }
       bloomPass.enabled = settings.blurEnabled
     })
-  specialEffectsGui
+
+  const bloomPassFolder = specialEffectsGui.addFolder('Blur Pass')
+
+  bloomPassFolder
     .add(settings, 'blurStrength')
     .min(0)
     .max(10)
     .step(0.01)
-    .name('Blur Strength')
+    .name('Strength')
     .onChange((value: number) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(bloomPass as any).combineUniforms.strength.value = value
       // ;(bloomPass as any).combineUniforms.strength = value
     })
-  specialEffectsGui
+  bloomPassFolder
     .add(settings, 'blurKernelSize')
     .min(0)
     .max(100)
     .step(1)
-    .name('Blur Kernel Size')
+    .name('Kernel Size')
     .onChange(refreshBlur)
-  specialEffectsGui
+  bloomPassFolder
     .add(settings, 'blurSigma')
     .min(0.01)
     .max(5)
     .step(0.01)
-    .name('Blur Sigma')
+    .name('Sigma')
     .onChange(refreshBlur)
 
   function refreshBlur() {
