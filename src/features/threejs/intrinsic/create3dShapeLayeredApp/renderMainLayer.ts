@@ -37,6 +37,7 @@ export function renderMainLayer({
     {
       depthBuffer: false,
       stencilBuffer: false,
+      colorSpace: THREE.SRGBColorSpace,
     },
   )
 

@@ -86,7 +86,11 @@ void main() {
     vec4 color = texture2D(tDiffuse, vUv);
     if (uSize <= 0.0) {
         float r = random(vUv * uTime);
-        gl_FragColor = r > (1. - color.a) ? color : vec4(0.);
+        if (r + color.a <= 1.) {
+            gl_FragColor = vec4(0., 0., 0., 0.);
+        } else {
+            gl_FragColor =  color;
+        }
     } else {
         float r = noise(vUv * uSize);
         gl_FragColor = r * color;

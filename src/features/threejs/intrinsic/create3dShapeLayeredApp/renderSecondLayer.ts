@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import GUI from 'lil-gui'
+import {
+  CopyPass,
+  EffectComposer,
+  GaussianBlurPass,
+  RenderPass,
+  ShaderPass,
+} from 'postprocessing'
 import { BehaviorSubject } from 'rxjs'
 import * as THREE from 'three'
-import { BloomPass } from 'three/examples/jsm/postprocessing/BloomPass.js'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { SavePass } from 'three/examples/jsm/postprocessing/SavePass.js'
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorShader.js'
 import { ILayer } from './ILayer'
 import { getItemRatio } from './getItemRatio'
 import { createNoiseShader } from './noiseShader'
@@ -66,7 +66,6 @@ function getColor(
   const res = from.clone()
   if (gradientType === 'rgb') {
     res.lerp(to, meshRatio)
-    console.log('here')
   } else if (gradientType === 'hsl') {
     res.lerpHSL(to, meshRatio)
   }
@@ -196,7 +195,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
       const mesh = figures[i]
       updateMesh(scene, updateMaterial, globalSettings, settings, i, mesh)
     }
-    noiseShaderPass.uniforms.uTime.value = settings.noiseTimeBased
+    noiseShaderMaterial.uniforms.uTime.value = settings.noiseTimeBased
       ? globalSettings.time
       : 1
   }
@@ -205,9 +204,11 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     size$.getValue().x,
     size$.getValue().y,
     {
-      depthBuffer: false,
-      stencilBuffer: false,
-      samples: window.devicePixelRatio > 1 ? 1 : 2,
+      // depthBuffer: false,
+      // format: THREE.RGBAFormat,
+      // stencilBuffer: false,
+      // samples: window.devicePixelRatio > 1 ? 1 : 2,
+      colorSpace: THREE.SRGBColorSpace,
     },
   )
   renderTarget.texture.name = 'SecondaryLayerTexture'
@@ -220,138 +221,91 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     .name('Max Scale')
     .onChange(() => refreshMeshes(initialGlobalSettings))
 
-  const effectComposer = new EffectComposer(renderer)
-  effectComposer.renderToScreen = false
+  const effectComposer = new EffectComposer(renderer, {
+    depthBuffer: false,
+    stencilBuffer: false,
+    alpha: true,
+  })
+  effectComposer.autoRenderToScreen = false
 
   const renderPass = new RenderPass(scene, camera)
   effectComposer.addPass(renderPass)
 
   const specialEffectsGui = gui.addFolder('Special Effects')
 
-  const sobelOperatorPass = new ShaderPass(SobelOperatorShader)
-  sobelOperatorPass.enabled = false
-  specialEffectsGui.add(sobelOperatorPass, 'enabled').name('Sobel Pass Enabled')
-  effectComposer.addPass(sobelOperatorPass)
+  // const sobelOperatorPass = new ShaderPass(SobelOperatorShader)
+  // sobelOperatorPass.enabled = false
+  // specialEffectsGui.add(sobelOperatorPass, 'enabled').name('Sobel Pass Enabled')
+  // effectComposer.addPass(sobelOperatorPass)
 
-  const unrealBloomPass = new UnrealBloomPass(
-    size$.getValue(),
-    settings.unrealBloomPassStrength,
-    settings.unrealBloomPassRadius,
-    settings.unrealBloomPassThreshold,
-  )
-
-  unrealBloomPass.enabled = false
+  const blurPass = new GaussianBlurPass({
+    kernelSize: settings.blurKernelSize,
+    iterations: 1,
+  })
+  blurPass.enabled = false
 
   specialEffectsGui
-    .add(unrealBloomPass, 'enabled')
-    .name('Unreal Bloom Enabled')
-    .onChange((enabled: boolean) => {
-      if (enabled) {
-        unrealBloomFolder.show()
-      } else {
-        unrealBloomFolder.hide()
-      }
-    })
-
-  const unrealBloomFolder = specialEffectsGui.addFolder('Unreal Bloom')
-
-  unrealBloomFolder.hide()
-
-  unrealBloomFolder
-    .add(settings, 'unrealBloomPassStrength')
-    .name('Strength')
-    .min(0)
-    .max(3)
-    .step(0.01)
-    .onChange(function (value: number) {
-      unrealBloomPass.strength = Number(value)
-    })
-
-  unrealBloomFolder
-    .add(settings, 'unrealBloomPassRadius')
-    .name('Radius')
-    .min(0)
-    .max(1)
-    .step(0.01)
-    .onChange(function (value: number) {
-      unrealBloomPass.radius = Number(value)
-    })
-
-  unrealBloomFolder
-    .add(settings, 'unrealBloomPassThreshold')
-    .name('Threshold')
-    .min(0)
-    .max(1)
-    .step(0.01)
-    .onChange(function (value: number) {
-      unrealBloomPass.threshold = Number(value)
-    })
-
-  effectComposer.addPass(unrealBloomPass)
-
-  let bloomPass = new BloomPass(settings.blurStrength, 25, 4)
-  bloomPass.enabled = true
-
-  specialEffectsGui
-    .add(settings, 'blurEnabled')
+    .add(blurPass, 'enabled')
     .name('Blur Pass Enabled')
     .onChange(() => {
-      if (settings.blurEnabled) {
+      if (blurPass.enabled) {
         bloomPassFolder.show()
       } else {
         bloomPassFolder.hide()
       }
-      bloomPass.enabled = settings.blurEnabled
     })
 
   const bloomPassFolder = specialEffectsGui.addFolder('Blur Pass')
 
-  bloomPassFolder
-    .add(settings, 'blurStrength')
-    .min(0)
-    .max(10)
-    .step(0.01)
-    .name('Strength')
-    .onChange((value: number) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(bloomPass as any).combineUniforms.strength.value = value
-      // ;(bloomPass as any).combineUniforms.strength = value
-    })
-  bloomPassFolder
-    .add(settings, 'blurKernelSize')
-    .min(0)
-    .max(100)
-    .step(1)
-    .name('Kernel Size')
-    .onChange(refreshBlur)
-  bloomPassFolder
-    .add(settings, 'blurSigma')
-    .min(0.01)
-    .max(5)
-    .step(0.01)
-    .name('Sigma')
-    .onChange(refreshBlur)
+  // bloomPassFolder
+  //   .add(settings, 'blurStrength')
+  //   .min(0)
+  //   .max(10)
+  //   .step(0.01)
+  //   .name('Strength')
+  //   .onChange((value: number) => {
+  //     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //     ;(blurPass as any).combineUniforms.strength.value = value
+  //     // ;(bloomPass as any).combineUniforms.strength = value
+  //   })
+  // bloomPassFolder
+  //   .add(settings, 'blurKernelSize')
+  //   .min(0)
+  //   .max(100)
+  //   .step(1)
+  //   .name('Kernel Size')
+  //   .onChange(refreshBlur)
+  // bloomPassFolder
+  //   .add(settings, 'blurSigma')
+  //   .min(0.01)
+  //   .max(5)
+  //   .step(0.01)
+  //   .name('Sigma')
+  //   .onChange(refreshBlur)
 
-  function refreshBlur() {
-    const ind = effectComposer.passes.indexOf(bloomPass)
-    if (ind === -1) return
-    effectComposer.removePass(bloomPass)
-    bloomPass = new BloomPass(
-      settings.blurStrength,
-      settings.blurKernelSize,
-      settings.blurSigma,
-    )
-    effectComposer.insertPass(bloomPass, ind)
-  }
+  // function refreshBlur() {
+  //   const ind = effectComposer.passes.indexOf(blurPass as any)
+  //   if (ind === -1) return
+  //   effectComposer.removePass(blurPass as any)
+  //   blurPass = new BloomPass(
+  //     settings.blurStrength,
+  //     settings.blurKernelSize,
+  //     settings.blurSigma,
+  //   )
+  //   effectComposer.addPass(blurPass as any, ind)
+  // }
 
-  effectComposer.addPass(bloomPass)
+  effectComposer.addPass(blurPass)
 
-  refreshBlur()
-
-  const noiseShaderPass = new ShaderPass(createNoiseShader()) as ShaderPass & {
+  const noiseShaderMaterial = new THREE.ShaderMaterial(
+    createNoiseShader(),
+  ) as THREE.ShaderMaterial & {
     uniforms: ReturnType<typeof createNoiseShader>['uniforms']
   }
+  noiseShaderMaterial.transparent = true
+  noiseShaderMaterial.blending = THREE.NoBlending
 
+  const noiseShaderPass = new ShaderPass(noiseShaderMaterial, 'tDiffuse')
   noiseShaderPass.enabled = true
 
   specialEffectsGui
@@ -367,7 +321,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   const noiseFolder = specialEffectsGui.addFolder('Noise')
   // noiseFolder.hide()
 
-  noiseShaderPass.uniforms.uSize.value = getSizeValue(
+  noiseShaderMaterial.uniforms.uSize.value = getSizeValue(
     settings.noiseType,
     settings.noiseSize,
   )
@@ -378,7 +332,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     .name('Noise Type')
     .onChange(() => {
       const res = getSizeValue(settings.noiseType, settings.noiseSize)
-      noiseShaderPass.uniforms.uSize.value = res
+      noiseShaderMaterial.uniforms.uSize.value = res
       if (settings.noiseType === 'smooth') {
         noiseSizeController.show()
       } else {
@@ -395,21 +349,22 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     .name('Noise Size')
     .onChange(() => {
       const res = getSizeValue(settings.noiseType, settings.noiseSize)
-      noiseShaderPass.uniforms.uSize.value = res
+      noiseShaderMaterial.uniforms.uSize.value = res
     })
 
   effectComposer.addPass(noiseShaderPass)
 
-  effectComposer.addPass(new SavePass(renderTarget))
+  const savePass = new CopyPass(renderTarget, false)
+  effectComposer.addPass(savePass)
 
   const sub = size$.subscribe((sizes) => {
     for (const pass of effectComposer.passes) {
       pass.setSize(sizes.x, sizes.y)
     }
     renderTarget.setSize(sizes.x, sizes.y)
-    sobelOperatorPass.material.uniforms.resolution.value.set(sizes.x, sizes.y)
+    // sobelOperatorPass.material.uniforms.resolution.value.set(sizes.x, sizes.y)
     effectComposer.setSize(sizes.x, sizes.y)
-    effectComposer.setPixelRatio(renderer.getPixelRatio())
+    // effectComposer.setPixelRatio(renderer.getPixelRatio())
   })
 
   const api: ILayer = {
