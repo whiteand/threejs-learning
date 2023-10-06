@@ -186,7 +186,12 @@ export default function createLayeredApp(
       const renderer = new THREE.WebGLRenderer({
         canvas,
         alpha: true,
+        powerPreference: 'high-performance',
+        antialias: false,
+        stencil: false,
+        depth: false,
       })
+      renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.setPixelRatio(Math.min(2, window.devicePixelRatio))
       // renderer.setClearColor(settings.bgColor, 1)
       renderer.setSize(size$.getValue().x, size$.getValue().y)
