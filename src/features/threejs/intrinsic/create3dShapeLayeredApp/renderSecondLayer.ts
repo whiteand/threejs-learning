@@ -5,6 +5,7 @@ import {
   BloomEffect,
   BloomEffectOptions,
   CopyPass,
+  DepthOfFieldEffect,
   Effect,
   EffectComposer,
   EffectPass,
@@ -33,10 +34,7 @@ interface ISecondLayerSettings {
   middleColor: THREE.Color
   endColor: THREE.Color
   colorPower: number
-  blurStrength: number
   blurKernelSize: number
-  blurSigma: number
-  blurEnabled: boolean
   bloomEnabled: boolean
   noiseSize: number
   noiseType: 'random' | 'smooth'
@@ -45,6 +43,7 @@ interface ISecondLayerSettings {
   unrealBloomPassStrength: number
   unrealBloomPassRadius: number
   unrealBloomPassThreshold: number
+  depthOfFieldEnabled: boolean
 }
 
 function getOpacity(progress: number) {
@@ -142,10 +141,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     endColor: new THREE.Color(0x0011ff),
     maxScale: 0,
     colorPower: 4,
-    blurStrength: 1,
     blurKernelSize: 16,
-    blurSigma: 2,
-    blurEnabled: true,
     noiseSize: 1.5,
     gradientType: 'hsl',
     noiseType: 'random',
@@ -154,6 +150,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     unrealBloomPassStrength: 0.6,
     unrealBloomPassRadius: 0.05,
     bloomEnabled: false,
+    depthOfFieldEnabled: false,
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -211,10 +208,9 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     size$.getValue().x,
     size$.getValue().y,
     {
-      depthBuffer: false,
       // format: THREE.RGBAFormat,
-      stencilBuffer: false,
-      samples: window.devicePixelRatio > 1 ? 1 : 2,
+      // stencilBuffer: false,
+      // samples: window.devicePixelRatio > 1 ? 1 : 2,
       colorSpace: THREE.SRGBColorSpace,
     },
   )
@@ -305,8 +301,54 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     .options(BlendFunction)
     .onChange(rebuildEffectPass)
 
-  let effectPass = new EffectPass(camera, new BloomEffect(bloomEffectOptions))
+  specialEffectsGui
+    .add(settings, 'depthOfFieldEnabled')
+    .name('Depth Of Field Enabled')
+    .onChange(rebuildEffectPass)
 
+  const depthOfFieldFolder = specialEffectsGui.addFolder('Depth Of Field')
+
+  const depthOfFieldOptions: ConstructorParameters<
+    typeof DepthOfFieldEffect
+  >[1] = {
+    focusDistance: 0.1,
+    focusRange: 0.2,
+    bokehScale: 4.17,
+    height: 480,
+  }
+
+  // depthOfFieldFolder
+  //   .add(depthOfFieldOptions, 'blendFunction')
+  //   .name('Blend Function')
+  //   .options(BlendFunction)
+  //   .onChange(rebuildEffectPass)
+
+  depthOfFieldFolder
+    .add(depthOfFieldOptions, 'bokehScale')
+    .min(1)
+    .max(5)
+    .step(0.01)
+    .name('Bokeh Scale')
+    .onChange(rebuildEffectPass)
+
+  depthOfFieldFolder
+    .add(depthOfFieldOptions, 'focusDistance')
+    .min(0.001)
+    .max(1)
+    .step(0.001)
+    .name('Focus Distance')
+    .onChange(rebuildEffectPass)
+
+  depthOfFieldFolder
+    .add(depthOfFieldOptions, 'focusRange')
+    .min(0)
+    .max(1)
+    .step(0.001)
+    .name('Focus Range')
+    .onChange(rebuildEffectPass)
+
+  let effectPass = new EffectPass(camera)
+  effectPass.renderToScreen = false
   effectComposer.addPass(effectPass)
 
   rebuildEffectPass()
@@ -324,6 +366,24 @@ export function renderSecondLayer<F extends THREE.Object3D>({
       effects.push(new BloomEffect(bloomEffectOptions))
     } else {
       bloomEffectFolder.hide()
+    }
+
+    if (settings.depthOfFieldEnabled) {
+      depthOfFieldFolder.show()
+      const depthOfFieldEffect = new DepthOfFieldEffect(
+        camera,
+        depthOfFieldOptions,
+      )
+      if (depthOfFieldOptions?.focusDistance != null)
+        depthOfFieldEffect.cocMaterial.uniforms.focusDistance.value =
+          depthOfFieldOptions.focusDistance
+      if (depthOfFieldOptions?.focusRange != null) {
+        depthOfFieldEffect.cocMaterial.uniforms.focusRange.value =
+          depthOfFieldOptions.focusRange
+      }
+      effects.push(depthOfFieldEffect)
+    } else {
+      depthOfFieldFolder.hide()
     }
 
     effectPass = new EffectPass(camera, ...effects)
@@ -347,7 +407,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   )
 
   const noiseShaderPass = new ShaderPass(noiseShaderMaterial, 'tDiffuse')
-  noiseShaderPass.enabled = true
+  noiseShaderPass.enabled = false
 
   addNoiseSettings(settings, specialEffectsGui, noiseShaderPass)
 
