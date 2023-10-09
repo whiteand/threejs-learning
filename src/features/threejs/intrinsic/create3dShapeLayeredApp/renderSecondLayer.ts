@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import GUI from 'lil-gui'
 import {
+  BlendFunction,
+  BloomEffect,
+  BloomEffectOptions,
   CopyPass,
+  Effect,
   EffectComposer,
+  EffectPass,
   GaussianBlurPass,
   RenderPass,
   ShaderPass,
@@ -32,6 +37,7 @@ interface ISecondLayerSettings {
   blurKernelSize: number
   blurSigma: number
   blurEnabled: boolean
+  bloomEnabled: boolean
   noiseSize: number
   noiseType: 'random' | 'smooth'
   noiseTimeBased: boolean
@@ -147,6 +153,7 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     unrealBloomPassThreshold: 0.2,
     unrealBloomPassStrength: 0.6,
     unrealBloomPassRadius: 0.05,
+    bloomEnabled: false,
   }
 
   gui.addColor(settings, 'startColor').name('Start Color')
@@ -204,10 +211,10 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     size$.getValue().x,
     size$.getValue().y,
     {
-      // depthBuffer: false,
+      depthBuffer: false,
       // format: THREE.RGBAFormat,
-      // stencilBuffer: false,
-      // samples: window.devicePixelRatio > 1 ? 1 : 2,
+      stencilBuffer: false,
+      samples: window.devicePixelRatio > 1 ? 1 : 2,
       colorSpace: THREE.SRGBColorSpace,
     },
   )
@@ -244,58 +251,88 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   })
   blurPass.enabled = false
 
-  specialEffectsGui
-    .add(blurPass, 'enabled')
-    .name('Blur Pass Enabled')
-    .onChange(() => {
-      if (blurPass.enabled) {
-        bloomPassFolder.show()
-      } else {
-        bloomPassFolder.hide()
-      }
-    })
-
-  const bloomPassFolder = specialEffectsGui.addFolder('Blur Pass')
-
-  // bloomPassFolder
-  //   .add(settings, 'blurStrength')
-  //   .min(0)
-  //   .max(10)
-  //   .step(0.01)
-  //   .name('Strength')
-  //   .onChange((value: number) => {
-  //     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  //     ;(blurPass as any).combineUniforms.strength.value = value
-  //     // ;(bloomPass as any).combineUniforms.strength = value
-  //   })
-  // bloomPassFolder
-  //   .add(settings, 'blurKernelSize')
-  //   .min(0)
-  //   .max(100)
-  //   .step(1)
-  //   .name('Kernel Size')
-  //   .onChange(refreshBlur)
-  // bloomPassFolder
-  //   .add(settings, 'blurSigma')
-  //   .min(0.01)
-  //   .max(5)
-  //   .step(0.01)
-  //   .name('Sigma')
-  //   .onChange(refreshBlur)
-
-  // function refreshBlur() {
-  //   const ind = effectComposer.passes.indexOf(blurPass as any)
-  //   if (ind === -1) return
-  //   effectComposer.removePass(blurPass as any)
-  //   blurPass = new BloomPass(
-  //     settings.blurStrength,
-  //     settings.blurKernelSize,
-  //     settings.blurSigma,
-  //   )
-  //   effectComposer.addPass(blurPass as any, ind)
-  // }
+  specialEffectsGui.add(blurPass, 'enabled').name('Blur Pass Enabled')
 
   effectComposer.addPass(blurPass)
+
+  const bloomEffectOptions: BloomEffectOptions = {
+    intensity: 1.5,
+    radius: 0.85,
+    luminanceThreshold: 0.4,
+    luminanceSmoothing: 0.2,
+    blendFunction: BlendFunction.ALPHA,
+  }
+
+  specialEffectsGui
+    .add(settings, 'bloomEnabled')
+    .name('Bloom Enabled')
+    .onChange(rebuildEffectPass)
+  const bloomEffectFolder = specialEffectsGui.addFolder('Bloom Effect')
+  bloomEffectFolder
+    .add(bloomEffectOptions, 'intensity')
+    .min(0)
+    .max(10)
+    .step(0.01)
+    .onChange(rebuildEffectPass)
+
+  bloomEffectFolder
+    .add(bloomEffectOptions, 'radius')
+    .min(0)
+    .max(1)
+    .step(0.001)
+    .onChange(rebuildEffectPass)
+
+  const luminanceFolder = bloomEffectFolder.addFolder('Luminance')
+
+  luminanceFolder
+    .add(bloomEffectOptions, 'luminanceThreshold')
+    .name('Threshold')
+    .min(0)
+    .max(1)
+    .step(0.001)
+    .onChange(rebuildEffectPass)
+
+  luminanceFolder
+    .add(bloomEffectOptions, 'luminanceSmoothing')
+    .name('Smoothing')
+    .min(0)
+    .max(1)
+    .step(0.001)
+    .onChange(rebuildEffectPass)
+
+  bloomEffectFolder
+    .add(bloomEffectOptions, 'blendFunction')
+    .options(BlendFunction)
+    .onChange(rebuildEffectPass)
+
+  let effectPass = new EffectPass(camera, new BloomEffect(bloomEffectOptions))
+
+  effectComposer.addPass(effectPass)
+
+  rebuildEffectPass()
+
+  function rebuildEffectPass() {
+    const ind = effectComposer.passes.indexOf(effectPass)
+    if (ind < 0) return
+    effectComposer.removePass(effectPass)
+    effectPass.dispose()
+
+    const effects: Effect[] = []
+
+    if (settings.bloomEnabled) {
+      bloomEffectFolder.show()
+      effects.push(new BloomEffect(bloomEffectOptions))
+    } else {
+      bloomEffectFolder.hide()
+    }
+
+    effectPass = new EffectPass(camera, ...effects)
+    effectPass.enabled = effects.length > 0
+
+    effectComposer.addPass(effectPass, ind)
+  }
+
+  // NOISE PASS
 
   const noiseShaderMaterial = new THREE.ShaderMaterial(
     createNoiseShader(),
@@ -304,53 +341,15 @@ export function renderSecondLayer<F extends THREE.Object3D>({
   }
   noiseShaderMaterial.transparent = true
   noiseShaderMaterial.blending = THREE.NoBlending
-
-  const noiseShaderPass = new ShaderPass(noiseShaderMaterial, 'tDiffuse')
-  noiseShaderPass.enabled = true
-
-  specialEffectsGui
-    .add(noiseShaderPass, 'enabled')
-    .name('Noise Enabled')
-    .onChange((enabled: boolean) => {
-      if (enabled) {
-        noiseFolder.show()
-      } else {
-        noiseFolder.hide()
-      }
-    })
-  const noiseFolder = specialEffectsGui.addFolder('Noise')
-  // noiseFolder.hide()
-
   noiseShaderMaterial.uniforms.uSize.value = getSizeValue(
     settings.noiseType,
     settings.noiseSize,
   )
 
-  noiseFolder
-    .add(settings, 'noiseType')
-    .options(['random', 'smooth'])
-    .name('Noise Type')
-    .onChange(() => {
-      const res = getSizeValue(settings.noiseType, settings.noiseSize)
-      noiseShaderMaterial.uniforms.uSize.value = res
-      if (settings.noiseType === 'smooth') {
-        noiseSizeController.show()
-      } else {
-        noiseSizeController.hide()
-      }
-    })
+  const noiseShaderPass = new ShaderPass(noiseShaderMaterial, 'tDiffuse')
+  noiseShaderPass.enabled = true
 
-  noiseFolder.add(settings, 'noiseTimeBased').name('Time Based Noise')
-  const noiseSizeController = noiseFolder
-    .add(settings, 'noiseSize')
-    .min(1)
-    .max(10)
-    .step(0.01)
-    .name('Noise Size')
-    .onChange(() => {
-      const res = getSizeValue(settings.noiseType, settings.noiseSize)
-      noiseShaderMaterial.uniforms.uSize.value = res
-    })
+  addNoiseSettings(settings, specialEffectsGui, noiseShaderPass)
 
   effectComposer.addPass(noiseShaderPass)
 
@@ -396,4 +395,53 @@ export function renderSecondLayer<F extends THREE.Object3D>({
     .onChange(() => refreshMeshes(initialGlobalSettings))
 
   return api
+}
+
+function addNoiseSettings(
+  settings: ISecondLayerSettings,
+  specialEffectsGui: GUI,
+  noiseShaderPass: ShaderPass,
+) {
+  const noiseShaderMaterial =
+    noiseShaderPass.fullscreenMaterial as THREE.ShaderMaterial & {
+      uniforms: ReturnType<typeof createNoiseShader>['uniforms']
+    }
+
+  specialEffectsGui
+    .add(noiseShaderPass, 'enabled')
+    .name('Noise Enabled')
+    .onChange((enabled: boolean) => {
+      if (enabled) {
+        noiseFolder.show()
+      } else {
+        noiseFolder.hide()
+      }
+    })
+  const noiseFolder = specialEffectsGui.addFolder('Noise')
+
+  noiseFolder
+    .add(settings, 'noiseType')
+    .options(['random', 'smooth'])
+    .name('Noise Type')
+    .onChange(() => {
+      const res = getSizeValue(settings.noiseType, settings.noiseSize)
+      noiseShaderMaterial.uniforms.uSize.value = res
+      if (settings.noiseType === 'smooth') {
+        noiseSizeController.show()
+      } else {
+        noiseSizeController.hide()
+      }
+    })
+
+  noiseFolder.add(settings, 'noiseTimeBased').name('Time Based Noise')
+  const noiseSizeController = noiseFolder
+    .add(settings, 'noiseSize')
+    .min(1)
+    .max(10)
+    .step(0.01)
+    .name('Noise Size')
+    .onChange(() => {
+      const res = getSizeValue(settings.noiseType, settings.noiseSize)
+      noiseShaderMaterial.uniforms.uSize.value = res
+    })
 }
